@@ -1,0 +1,234 @@
+{
+  "name": "WF-E2E-Relocation-Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nexmove-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-intake",
+      "name": "1. Webhook - Intake Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [180, 300],
+      "webhookId": "nexmove-intake-webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/projects",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"user_email\": \"{{ $json.body.user_email || 'user@example.com' }}\",\n  \"user_name\": \"{{ $json.body.user_name || 'Relocating Professional' }}\",\n  \"origin_city\": \"{{ $json.body.origin_city || 'Pune' }}\",\n  \"destination_city\": \"{{ $json.body.destination_city || 'Bengaluru' }}\",\n  \"target_move_date\": \"{{ $json.body.target_move_date || '2026-11-05' }}\",\n  \"upfront_budget_limit_inr\": {{ $json.body.upfront_budget_limit_inr || 150000 }},\n  \"monthly_budget_limit_inr\": {{ $json.body.monthly_budget_limit_inr || 45000 }},\n  \"home_bhk\": {{ $json.body.home_bhk || 2 }},\n  \"has_pets\": {{ $json.body.has_pets !== undefined ? $json.body.has_pets : true }},\n  \"target_workplace\": \"{{ $json.body.target_workplace || 'Manyata Tech Park' }}\",\n  \"max_commute_mins\": {{ $json.body.max_commute_mins || 40 }}\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-create-project",
+      "name": "2. FastAPI - Create Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8000/api/projects/{{ $json.project_id }}/run",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "node-run-workflow",
+      "name": "3. FastAPI - Execute Agents (LangGraph)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.status }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "CONSENSUS_REACHED",
+              "outputKey": "consensus"
+            },
+            {
+              "value2": "AWAITING_USER_DECISION",
+              "outputKey": "human_decision"
+            }
+          ]
+        },
+        "fallbackOutput": "error_or_failed"
+      },
+      "id": "node-check-status",
+      "name": "4. Router - Check Plan Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "notification_title",
+              "value": "=NEXMOVE Plan Ready: {{ $json.synthesized_plan.recommended_housing_title }}"
+            },
+            {
+              "name": "notification_body",
+              "value": "=Relocation plan synthesized successfully.\nTotal Upfront Outlay: ₹{{ $json.synthesized_plan.total_upfront_outlay_inr.toLocaleString('en-IN') }}\nMonthly Living Spend: ₹{{ $json.synthesized_plan.total_recurring_monthly_inr.toLocaleString('en-IN') }}\nUpfront Contingency Buffer: ₹{{ $json.synthesized_plan.upfront_buffer_inr.toLocaleString('en-IN') }}\n\nTrade-offs Resolved:\n{{ $json.synthesized_plan.trade_offs_resolved.join('\n') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-format-success",
+      "name": "5A. Format Plan Summary",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1180, 180]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"status\": \"CONSENSUS_REACHED\",\n  \"project_id\": \"{{ $('3. FastAPI - Execute Agents (LangGraph)').item.json.project_id }}\",\n  \"plan_title\": \"{{ $('5A. Format Plan Summary').item.json.notification_title }}\",\n  \"details\": \"{{ $('5A. Format Plan Summary').item.json.notification_body }}\"\n}",
+        "options": {}
+      },
+      "id": "node-respond-success",
+      "name": "6A. Return Consensus Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1400, 180]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "webhookSuffix": "resume-decision",
+        "options": {}
+      },
+      "id": "node-wait-human",
+      "name": "5B. Pause for Human Decision (HITL)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1180, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/webhooks/n8n/resume",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"project_id\": \"{{ $('3. FastAPI - Execute Agents (LangGraph)').item.json.project_id }}\",\n  \"callback_token\": \"{{ $json.query.token || 'manual-resume' }}\",\n  \"user_choice\": \"{{ $json.body.user_choice || 'SELECT_OPTION_A' }}\",\n  \"notes\": \"Resumed via n8n Human-in-the-Loop Webhook\"\n}",
+        "options": {}
+      },
+      "id": "node-resume-callback",
+      "name": "6B. FastAPI - Resume Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1420, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"status\": \"FAILED_OR_UNRESOLVED\",\n  \"error\": \"Plan execution failed or encountered unhandled state.\",\n  \"raw_data\": {{ JSON.stringify($json) }}\n}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "id": "node-respond-error",
+      "name": "5C. Return Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1180, 560]
+    }
+  ],
+  "connections": {
+    "1. Webhook - Intake Request": {
+      "main": [
+        [
+          {
+            "node": "2. FastAPI - Create Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. FastAPI - Create Project": {
+      "main": [
+        [
+          {
+            "node": "3. FastAPI - Execute Agents (LangGraph)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. FastAPI - Execute Agents (LangGraph)": {
+      "main": [
+        [
+          {
+            "node": "4. Router - Check Plan Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Router - Check Plan Status": {
+      "main": [
+        [
+          {
+            "node": "5A. Format Plan Summary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5B. Pause for Human Decision (HITL)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5C. Return Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5A. Format Plan Summary": {
+      "main": [
+        [
+          {
+            "node": "6A. Return Consensus Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5B. Pause for Human Decision (HITL)": {
+      "main": [
+        [
+          {
+            "node": "6B. FastAPI - Resume Callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
