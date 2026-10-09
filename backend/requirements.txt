@@ -1,0 +1,19 @@
+# Core Pydantic data schemas
+pydantic>=2.7.0,<3.0.0
+
+# Database ORM
+sqlalchemy>=2.0.0,<3.0.0
+
+# Agent State Graph & Orchestration
+langgraph>=0.2.0,<2.0.0
+
+# Web API Gateway
+fastapi>=0.110.0,<1.0.0
+uvicorn>=0.29.0,<1.0.0
+httpx>=0.27.0,<1.0.0
+python-multipart>=0.0.9,<1.0.0
+
+# Testing
+pytest>=8.0.0,<10.0.0
+
+
