@@ -213,3 +213,40 @@ def test_relocation_state_full_assembly(sample_profile, sample_housing_proposal,
     assert state.profile.destination_city == "Bengaluru"
     assert state.housing_proposal.property_id == "BLR-HSR-201"
     assert state.logistics_estimate.distance_km == 840
+
+
+def test_budget_audit_keeps_upfront_and_monthly_costs_separate():
+    one_time = OneTimeRelocationCosts(
+        packers_movers_inr=10000.0,
+        transit_insurance_inr=1000.0,
+        travel_tickets_inr=500.0,
+        packing_supplies_inr=500.0,
+    )
+    housing = InitialHousingOutlay(
+        security_deposit_inr=20000.0,
+        advance_rent_inr=10000.0,
+        move_in_fee_inr=500.0,
+    )
+    recurring = RecurringMonthlyCosts(
+        monthly_base_rent_inr=10000.0,
+        society_maintenance_inr=1000.0,
+        estimated_utilities_inr=2000.0,
+        estimated_commute_inr=500.0,
+    )
+
+    audit = BudgetAudit(
+        one_time_costs=one_time,
+        housing_outlay=housing,
+        upfront_budget_limit_inr=43000.0,
+        recurring_monthly_costs=recurring,
+        monthly_budget_limit_inr=13000.0,
+    )
+
+    assert audit.total_upfront_outlay_inr == 42500.0
+    assert audit.upfront_variance_inr == 500.0
+    assert audit.upfront_violation is False
+
+    assert recurring.total_recurring_monthly_inr == 13500.0
+    assert audit.monthly_variance_inr == -500.0
+    assert audit.monthly_violation is True
+    assert audit.overall_financially_feasible is False
