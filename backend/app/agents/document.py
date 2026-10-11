@@ -19,9 +19,12 @@ class DocumentIntelligenceAgent:
         if file_path and file_path.exists():
             filename = file_path.name
             text = file_path.read_text(encoding="utf-8")
-        elif raw_text_content:
+        elif raw_text_content is not None:
             text = raw_text_content
         else:
+            text = None
+
+        if not text or not text.strip():
             return DocumentAudit(
                 document_filename=filename,
                 parse_status="FAILED",
