@@ -26,52 +26,79 @@ class HousingResearchAgent:
         self,
         profile: RelocationProfile,
         revision_request: Optional[RevisionRequest] = None
-    ) -> HousingProposal:
-        """Finds the optimal housing proposal matching constraints and soft preferences."""
+    ) -> Optional[HousingProposal]:
+        if not self._listings:
+            raise ValueError("Housing benchmark dataset contains zero listings.")
+
         city_lower = profile.destination_city.strip().lower()
-        candidates = [item for item in self._listings if item.get("city", "").strip().lower() == city_lower]
-        
-        # Fallback to Bengaluru if city has no matching listings in synthetic data
+        candidates = [
+            item for item in self._listings 
+            if item.get("city", "").strip().lower() == city_lower
+        ]
+
+        # Critical: Do not substitute another city if no listings exist for destination
         if not candidates:
-            candidates = [item for item in self._listings if item.get("city", "").strip().lower() == "bengaluru"]
+            return None
 
-        # 1. Hard Constraint: BHK matching (allow +/- 1 if zero match)
-        bhk_candidates = [item for item in candidates if item.get("bhk") == profile.home_bhk]
-        if bhk_candidates:
-            candidates = bhk_candidates
-
-        # 2. Hard Constraint: Pet Accommodations
+        # 1. Hard Constraint: Pet Accommodations (Never violate pet requirement)
         if profile.has_pets:
-            candidates = [item for item in candidates if item.get("pet_friendly") is True]
+            pet_candidates = [item for item in candidates if item.get("pet_friendly") is True]
+            if not pet_candidates:
+                if not any(item.get("pet_friendly") is True for item in self._listings):
+                    raise ValueError("No pet-friendly accommodations available in benchmark dataset matching profile.")
+                # No pet-friendly home available in destination city satisfying constraints
+                return None
+            candidates = pet_candidates
 
-        # 3. Dynamic Revision Request Limits (e.g., from Decision Agent budget arbitration)
+        # 2. BHK matching & Dynamic Revision Limits
         if revision_request and revision_request.hard_limits:
             max_rent = revision_request.hard_limits.get("max_monthly_rent")
-            if max_rent is not None:
-                candidates = [item for item in candidates if (item.get("monthly_rent_inr") or 0) <= max_rent]
-            
             max_deposit = revision_request.hard_limits.get("max_security_deposit")
-            if max_deposit is not None:
-                candidates = [item for item in candidates if (item.get("security_deposit_inr") or 0) <= max_deposit]
 
-        # If zero candidates pass all filters, fallback while strictly preserving hard constraints
-        if not candidates:
-            if profile.has_pets:
-                pet_filter = [item for item in self._listings if item.get("pet_friendly") is True]
-                if not pet_filter:
-                    raise ValueError("No pet-friendly accommodations available in benchmark dataset matching profile.")
-                candidates = sorted(pet_filter, key=lambda x: x.get("monthly_rent_inr") or 999999)[:1]
+            # Check exact BHK meeting budget
+            exact_bhk = [item for item in candidates if item.get("bhk") == profile.home_bhk]
+            budget_exact = [
+                item for item in exact_bhk
+                if (max_rent is None or (item.get("monthly_rent_inr") or 0) <= max_rent)
+                and (max_deposit is None or (item.get("security_deposit_inr") or 0) <= max_deposit)
+            ]
+            if budget_exact:
+                candidates = budget_exact
             else:
-                if not self._listings:
-                    raise ValueError("Housing benchmark dataset contains zero listings.")
-                candidates = sorted(self._listings, key=lambda x: x.get("monthly_rent_inr") or 999999)[:1]
+                # If no exact BHK meets budget, allow +/- 1 BHK in destination city that meets budget
+                close_bhk = [
+                    item for item in candidates
+                    if abs((item.get("bhk") or 0) - profile.home_bhk) <= 1
+                    and (max_rent is None or (item.get("monthly_rent_inr") or 0) <= max_rent)
+                    and (max_deposit is None or (item.get("security_deposit_inr") or 0) <= max_deposit)
+                ]
+                if close_bhk:
+                    candidates = close_bhk
+                elif exact_bhk:
+                    candidates = sorted(exact_bhk, key=lambda x: x.get("monthly_rent_inr") or 999999)[:1]
+                else:
+                    candidates = sorted(candidates, key=lambda x: x.get("monthly_rent_inr") or 999999)[:1]
+        else:
+            # Normal search: prefer exact BHK match
+            exact_bhk = [item for item in candidates if item.get("bhk") == profile.home_bhk]
+            if exact_bhk:
+                candidates = exact_bhk
+            else:
+                close_bhk = [item for item in candidates if abs((item.get("bhk") or 0) - profile.home_bhk) <= 1]
+                if close_bhk:
+                    candidates = close_bhk
 
-        # 4. Multi-Attribute Utility Scoring
+        if not candidates:
+            return None
+
+        # 4. Multi-Attribute Utility Scoring within destination candidates
         def score_listing(item: Dict[str, Any]) -> float:
             safety_val = item.get("safety_score_index")
             safety_norm = (safety_val if safety_val is not None else 5.0) / 10.0
             
-            commute_val = item.get("commute_to_manyata_mins")
+            commute_val = item.get("commute_to_workplace_mins")
+            if commute_val is None:
+                commute_val = item.get("commute_to_manyata_mins")
             commute = commute_val if commute_val is not None else 30
             max_commute = profile.max_commute_mins
             if revision_request and revision_request.soft_relaxations:
@@ -95,7 +122,9 @@ class HousingResearchAgent:
         society_maintenance = float(maint) if maint is not None else 0.0
         move_fee = best.get("move_in_fee_inr")
         move_in_fee = float(move_fee) if move_fee is not None else 0.0
-        commute_val = best.get("commute_to_manyata_mins")
+        commute_val = best.get("commute_to_workplace_mins")
+        if commute_val is None:
+            commute_val = best.get("commute_to_manyata_mins")
         commute_mins = int(commute_val) if commute_val is not None else 30
         safety_val = best.get("safety_score_index")
         safety_score = float(safety_val) if safety_val is not None else 8.0

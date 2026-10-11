@@ -19,13 +19,22 @@ def housing_node(data: AgentGraphState) -> AgentGraphState:
     agent = HousingResearchAgent()
     proposal = agent.search(state.profile, state.active_revision_request)
     state.housing_proposal = proposal
-    state.history.append(AgentMessage(
-        sender="HousingResearchAgent",
-        recipient="DecisionSynthesisAgent",
-        message_type="PROPOSAL",
-        content=f"Proposed {proposal.neighborhood} ({proposal.title}) at ₹{proposal.monthly_rent_inr:,.0f}/mo.",
-        payload=proposal.model_dump()
-    ))
+    if proposal:
+        state.history.append(AgentMessage(
+            sender="HousingResearchAgent",
+            recipient="DecisionSynthesisAgent",
+            message_type="PROPOSAL",
+            content=f"Proposed {proposal.neighborhood} ({proposal.title}) in {proposal.city} at ₹{proposal.monthly_rent_inr:,.0f}/mo.",
+            payload=proposal.model_dump()
+        ))
+    else:
+        state.history.append(AgentMessage(
+            sender="HousingResearchAgent",
+            recipient="DecisionSynthesisAgent",
+            message_type="AUDIT_FAIL",
+            content=f"No suitable properties found in {state.profile.destination_city} matching requested criteria.",
+            payload={"destination_city": state.profile.destination_city}
+        ))
     return {"state": state}
 
 

@@ -37,6 +37,11 @@ def list_sample_leases():
             filename="lease_redflag_inr.txt",
             title="Strict Non-Standard Lease (Indiranagar)",
             description="Contains non-refundable 1-month painting deduction, strict pet prohibition, and restricted move-in hours."
+        ),
+        SampleDocumentInfo(
+            filename="lease_ambiguous_inr.txt",
+            title="Draft Lease with Missing Key Terms",
+            description="Lacks explicit monthly rent and deposit figures, requiring manual clarification with landlord."
         )
     ]
 

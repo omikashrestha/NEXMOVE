@@ -47,7 +47,9 @@ class RelocationProject(Base):
     # Move context
     home_bhk = Column(Integer, default=2, nullable=False)
     has_pets = Column(Boolean, default=False, nullable=False)
-    status = Column(String(50), default="DRAFT", nullable=False)  # DRAFT, REASONING, CONSENSUS_REACHED, AWAITING_USER_DECISION, ACTIVE
+    target_workplace = Column(String(200), default="City Center", nullable=False)
+    max_commute_mins = Column(Integer, default=45, nullable=False)
+    status = Column(String(50), default="DRAFT", nullable=False)  # DRAFT, REASONING, CONSENSUS_REACHED, AWAITING_USER_DECISION, ACTIVE, APPROVED
 
     created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)

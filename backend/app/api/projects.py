@@ -186,8 +186,8 @@ def _build_profile_from_project(project: RelocationProject) -> RelocationProfile
         monthly_budget_limit_inr=float(project.monthly_budget_limit),
         home_bhk=project.home_bhk,
         has_pets=project.has_pets,
-        target_workplace="Manyata Tech Park",
-        max_commute_mins=40
+        target_workplace=getattr(project, "target_workplace", "City Center") or "City Center",
+        max_commute_mins=int(getattr(project, "max_commute_mins", 45) or 45)
     )
 
 
@@ -215,6 +215,8 @@ def create_project(req: CreateProjectRequest, db: Session = Depends(get_db)):
         monthly_budget_limit=req.monthly_budget_limit_inr,
         home_bhk=req.home_bhk,
         has_pets=req.has_pets,
+        target_workplace=req.target_workplace,
+        max_commute_mins=req.max_commute_mins,
         status="DRAFT"
     )
     db.add(project)
@@ -284,9 +286,25 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         for log in logs
     ]
 
-    # Run quick evaluation of state to construct detail response if already planned
+    # Check if a document record was uploaded for this project
+    doc_record = db.query(DocumentRecord).filter_by(project_id=project.id).first()
     init_state = RelocationState(project_id=project.id, profile=profile)
+    if doc_record:
+        init_state.document_audit = DocumentAudit(
+            document_filename=doc_record.file_name,
+            parse_status="SUCCESS",
+            extracted_monthly_rent_inr=doc_record.extracted_terms.get("monthly_rent_inr") if doc_record.extracted_terms else None,
+            extracted_security_deposit_inr=doc_record.extracted_terms.get("security_deposit_inr") if doc_record.extracted_terms else None,
+            flagged_clauses_for_review=[FlaggedClause(**c) for c in (doc_record.flagged_clauses or [])],
+            disclaimer=doc_record.disclaimer
+        )
+
     final_state = run_relocation_workflow(init_state)
+
+    if project.status in ["APPROVED", "REJECTED"]:
+        final_state.status = project.status
+        if final_state.synthesized_plan:
+            final_state.synthesized_plan.plan_status = project.status
 
     return ProjectDetailResponse(
         project_id=project.id,
@@ -299,7 +317,7 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         monthly_budget_limit_inr=project.monthly_budget_limit,
         home_bhk=project.home_bhk,
         has_pets=project.has_pets,
-        status=project.status,
+        status=final_state.status,
         created_at=project.created_at.isoformat(),
         housing_proposal=final_state.housing_proposal,
         logistics_estimate=final_state.logistics_estimate,
@@ -360,7 +378,11 @@ def replan_project(project_id: str, req: ReplanProjectRequest, db: Session = Dep
         project.target_move_date = req.target_move_date
     if req.has_pets is not None:
         project.has_pets = req.has_pets
+    if req.max_commute_mins is not None:
+        project.max_commute_mins = req.max_commute_mins
 
+    # Re-open draft status so new constraints trigger fresh arbitration
+    project.status = "DRAFT"
     db.commit()
 
     # Re-run reasoning engine
@@ -383,21 +405,36 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
         project.status = "REJECTED"
         db.commit()
     elif action == "SELECT_OPTION_A":
-        # User accepted Option A: expand upfront budget allowance
+        # User accepted Option A: expand budget allowance to required outlay
         detail = get_project(project_id, db)
         if detail.synthesized_plan and detail.synthesized_plan.escalation_options:
             opt_a = detail.synthesized_plan.escalation_options[0]
             project.upfront_budget_limit = opt_a.upfront_cost_inr
+            project.monthly_budget_limit = max(project.monthly_budget_limit, opt_a.monthly_cost_inr)
+            project.status = "APPROVED"
             db.commit()
             return run_project_planning(project_id, db)
         else:
             project.status = "APPROVED"
             db.commit()
     elif action == "SELECT_OPTION_B":
-        # User accepted Option B: compromise on transit/commute
-        project.status = "APPROVED"
-        db.commit()
+        # User accepted Option B: compromise on transit/commute or shared freight
+        detail = get_project(project_id, db)
+        if detail.synthesized_plan and len(detail.synthesized_plan.escalation_options) > 1:
+            opt_b = detail.synthesized_plan.escalation_options[1]
+            if opt_b.commute_mins > project.max_commute_mins:
+                project.max_commute_mins = opt_b.commute_mins
+            if opt_b.upfront_cost_inr > project.upfront_budget_limit:
+                project.upfront_budget_limit = opt_b.upfront_cost_inr
+            project.status = "APPROVED"
+            db.commit()
+            return run_project_planning(project_id, db)
+        else:
+            project.status = "APPROVED"
+            db.commit()
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported decision action '{req.decision_action}'.")
+
+    return get_project(project_id, db)
 
     return get_project(project_id, db)
