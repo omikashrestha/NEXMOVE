@@ -117,6 +117,27 @@ CITY_WORKPLACES: Dict[str, List[Dict[str, str]]] = {
         {"name": "Infopark Phase 1 & 2", "area": "Kakkanad", "category": "IT Mega Hub"},
         {"name": "SmartCity Kochi", "area": "Kakkanad", "category": "IT SEZ"},
         {"name": "MG Road Commercial Corridor", "area": "Ernakulam", "category": "Central Commercial District"}
+    ],
+    "bhopal": [
+        {"name": "MP Nagar Commercial Zone", "area": "Zone 1 & 2", "category": "Commercial Hub"},
+        {"name": "Govindpura Industrial Area", "area": "Govindpura", "category": "Industrial & Tech Park"},
+        {"name": "Arera Hills Corporate Hub", "area": "Arera Hills", "category": "Business District"},
+        {"name": "Hoshangabad Road Commercial Corridor", "area": "Hoshangabad Road", "category": "Corporate Corridor"}
+    ],
+    "indore": [
+        {"name": "Crystal IT Park", "area": "Khandwa Road", "category": "IT Park"},
+        {"name": "Super Corridor IT SEZ (TCS & Infosys)", "area": "Super Corridor", "category": "IT SEZ"},
+        {"name": "Vijay Nagar Commercial Hub", "area": "Vijay Nagar", "category": "Business District"}
+    ],
+    "lucknow": [
+        {"name": "HCL IT City", "area": "Sultanpur Road", "category": "IT SEZ"},
+        {"name": "Vibhuti Khand Commercial District", "area": "Gomti Nagar", "category": "Business Hub"},
+        {"name": "Hazratganj Central Commercial Area", "area": "Hazratganj", "category": "Central Business District"}
+    ],
+    "chandigarh": [
+        {"name": "Rajiv Gandhi Chandigarh Technology Park", "area": "Kishangarh", "category": "IT Park"},
+        {"name": "Industrial Area Phase 1 & 2", "area": "Industrial Area", "category": "Commercial Hub"},
+        {"name": "Sector 17 City Centre", "area": "Sector 17", "category": "Central Business District"}
     ]
 }
 

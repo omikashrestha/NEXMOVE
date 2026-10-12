@@ -98,8 +98,8 @@ class LogisticsAgent:
             specialty_fee = 8500.0 if profile.has_pets else 0.0
             corridor_id = f"{origin[:3].upper()}-{destination[:3].upper()}"
 
-        # Check for economy shared-container adjustment if budget revision was requested
-        if revision_request and revision_request.hard_limits.get("prefer_economy_freight"):
+        # Check for economy shared-container adjustment if requested in revision or profile
+        if (revision_request and revision_request.hard_limits.get("prefer_economy_freight")) or getattr(profile, "prefer_economy_freight", False):
             base_freight = round(base_freight * 0.82, 2)  # 18% savings
             transit_days += 2  # Longer consolidation transit
             vehicle_type = f"{vehicle_type} (Shared Economy Transit)"

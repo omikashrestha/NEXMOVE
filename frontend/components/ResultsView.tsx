@@ -31,6 +31,12 @@ import {
 } from "lucide-react";
 import { formatCurrency, getCurrencyFootnote } from "@/lib/currency";
 
+const SAMPLE_LEASE_DESCRIPTIONS: Record<string, string> = {
+  "lease_standard_inr.txt": "Fair-market standard agreement: ₹30,000 rent, standard 2-month refundable deposit, 1-month notice, and routine wear-and-tear terms.",
+  "lease_redflag_inr.txt": "High-risk agreement with penalty clauses: Non-refundable 1-month painting deduction, strict pet prohibition with deposit forfeiture, and tight elevator moving hours.",
+  "lease_ambiguous_inr.txt": "Incomplete draft agreement: Lacks explicit rupee figures for monthly rent and deposit, creating severe financial ambiguity before signing."
+};
+
 interface ResultsViewProps {
   project: any;
   loading: boolean;
@@ -276,7 +282,7 @@ export default function ResultsView({
 
       {/* 2. User Decision / Compromise Choice Banner (if AWAITING_USER_DECISION) */}
       {project.status === "AWAITING_USER_DECISION" && synthesized?.escalation_options && (
-        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-6 shadow-xs space-y-5">
           <div className="flex items-start space-x-3">
             <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -285,6 +291,36 @@ export default function ResultsView({
                 The moving costs or commute exceeded your budget limits. We prepared two realistic alternatives below so you can choose the trade-off that fits best:
               </p>
             </div>
+          </div>
+
+          {/* Financial Shortfall Breakdown */}
+          <div className="bg-white/90 rounded-2xl p-4 border border-amber-200 text-xs space-y-3">
+            <span className="font-bold text-amber-950 block">Original Budget Shortfall Analysis:</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 block">Your Stated Upfront Budget</span>
+                <span className="text-sm font-bold text-slate-900">{formatCurrency(project.upfront_budget_limit_inr, currency)}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-[11px] text-slate-500 block">Required Initial Outlay</span>
+                <span className="text-sm font-bold text-slate-900">
+                  {formatCurrency(synthesized.escalation_options[0]?.upfront_cost_inr || synthesized.total_upfront_outlay_inr, currency)}
+                </span>
+              </div>
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                <span className="text-[11px] text-rose-800 font-semibold block">Upfront Shortfall (Deficit)</span>
+                <span className="text-sm font-black text-rose-700">
+                  {Math.max(0, (synthesized.escalation_options[0]?.upfront_cost_inr || synthesized.total_upfront_outlay_inr) - project.upfront_budget_limit_inr) > 0
+                    ? `+ ${formatCurrency(Math.max(0, (synthesized.escalation_options[0]?.upfront_cost_inr || synthesized.total_upfront_outlay_inr) - project.upfront_budget_limit_inr), currency)}`
+                    : "None"}
+                </span>
+              </div>
+            </div>
+            {synthesized.escalation_options[0]?.monthly_cost_inr > project.monthly_budget_limit_inr && (
+              <p className="text-[11px] text-amber-900">
+                • Monthly Living Budget Shortfall: Stated limit {formatCurrency(project.monthly_budget_limit_inr, currency)} vs required {formatCurrency(synthesized.escalation_options[0].monthly_cost_inr, currency)} (Deficit: {formatCurrency(synthesized.escalation_options[0].monthly_cost_inr - project.monthly_budget_limit_inr, currency)}/mo).
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
@@ -315,9 +351,16 @@ export default function ResultsView({
                 <button
                   onClick={() => onDecision(`SELECT_OPTION_${opt.option_id}`)}
                   disabled={loading}
-                  className="mt-4 w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                  className="mt-4 w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center justify-center space-x-1.5 disabled:opacity-50"
                 >
-                  Choose Choice {opt.option_id}
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Updating plan...</span>
+                    </>
+                  ) : (
+                    <span>Choose Choice {opt.option_id}</span>
+                  )}
                 </button>
               </div>
             ))}
@@ -644,6 +687,23 @@ export default function ResultsView({
               </div>
             </div>
 
+            {/* Single Property Match Explanation */}
+            {filteredOptions.length === 1 && (
+              <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/80 text-xs text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span>
+                  Showing the <strong>1 property</strong> matching your specific requirements in {project.destination_city} ({filterBhk === "ALL" ? `${project.home_bhk} BHK` : `${filterBhk} BHK`}{filterPetOnly ? ", Pet Friendly" : ""}).
+                </span>
+                {(filterBhk !== "ALL" || filterPetOnly) && (
+                  <button
+                    onClick={() => { setFilterBhk("ALL"); setFilterPetOnly(false); }}
+                    className="text-[11px] font-bold text-blue-700 underline hover:text-blue-800 whitespace-nowrap"
+                  >
+                    Reset filters to view all options
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Property Cards Grid */}
             {filteredOptions.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
@@ -743,10 +803,28 @@ export default function ResultsView({
                 })}
               </div>
             ) : (
-              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
                 <Home className="w-8 h-8 mx-auto text-slate-400" />
-                <p className="text-xs font-semibold text-slate-700">No properties match your active filter.</p>
-                <p className="text-[11px] text-slate-400">Try changing your BHK or Pet filter, or enter details manually.</p>
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">No properties match your active filter in {project.destination_city}.</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Try resetting your BHK or Pet filters, or enter a property manually.</p>
+                </div>
+                <div className="flex justify-center gap-2 pt-1">
+                  {(filterBhk !== "ALL" || filterPetOnly) && (
+                    <button
+                      onClick={() => { setFilterBhk("ALL"); setFilterPetOnly(false); }}
+                      className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowManualPropertyModal(true)}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700"
+                  >
+                    Enter Property Manually
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1045,6 +1123,12 @@ export default function ResultsView({
                 <option value="lease_ambiguous_inr.txt">Example 3: Draft Agreement (Missing Rent / Deposit Terms)</option>
               </select>
 
+              {/* Sample Description */}
+              <p className="text-[11px] text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200 leading-relaxed">
+                <span className="font-semibold text-slate-800">What this test covers: </span>
+                {SAMPLE_LEASE_DESCRIPTIONS[selectedLeaseFile] || "Pre-packaged sample lease for evaluation."}
+              </p>
+
               <button
                 onClick={() => onAnalyzeSampleDoc(selectedLeaseFile)}
                 disabled={docLoading}
@@ -1092,6 +1176,17 @@ export default function ResultsView({
             </div>
 
           </div>
+
+          {/* Analysis In Progress Indicator */}
+          {docLoading && (
+            <div className="p-8 rounded-2xl bg-blue-50/60 border border-blue-200 text-center space-y-3">
+              <RefreshCw className="w-6 h-6 mx-auto text-blue-600 animate-spin" />
+              <div>
+                <h4 className="font-bold text-sm text-blue-900">Document Intelligence Agent Analyzing Agreement...</h4>
+                <p className="text-xs text-blue-700 mt-0.5">Extracting rent, deposit, notice terms, and flagging potential contractual risks.</p>
+              </div>
+            </div>
+          )}
 
           {/* Audit Results Grouped by Plain Categories */}
           {docAuditResult && (

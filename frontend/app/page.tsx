@@ -195,6 +195,7 @@ export default function HomeDashboard() {
   // 6. Document Sample Lease Audit Handler
   const handleAnalyzeSampleDoc = async (sampleFilename: string) => {
     setDocLoading(true);
+    setDocAuditResult(null);
     setErrorMsg(null);
     try {
       const projectIdParam = project?.project_id ? `&project_id=${project.project_id}` : "";
@@ -217,6 +218,7 @@ export default function HomeDashboard() {
   // 7. Document File Upload Audit Handler
   const handleUploadLeaseDocument = async (file: File) => {
     setDocLoading(true);
+    setDocAuditResult(null);
     setErrorMsg(null);
     try {
       const formData = new FormData();

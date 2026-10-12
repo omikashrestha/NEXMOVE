@@ -207,7 +207,8 @@ def _build_profile_from_project(project: RelocationProject) -> RelocationProfile
         has_pets=project.has_pets,
         target_workplace=getattr(project, "target_workplace", "City Center") or "City Center",
         max_commute_mins=int(getattr(project, "max_commute_mins", 45) or 45),
-        selected_property_id=getattr(project, "selected_property_id", None)
+        selected_property_id=getattr(project, "selected_property_id", None),
+        prefer_economy_freight=bool(getattr(project, "prefer_economy_freight", False) or False)
     )
 
 
@@ -325,6 +326,7 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         final_state.status = project.status
         if final_state.synthesized_plan:
             final_state.synthesized_plan.plan_status = project.status
+            final_state.synthesized_plan.escalation_options = []
 
     return ProjectDetailResponse(
         project_id=project.id,
@@ -431,11 +433,16 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
         detail = get_project(project_id, db)
         if detail.synthesized_plan and detail.synthesized_plan.escalation_options:
             opt_a = detail.synthesized_plan.escalation_options[0]
-            project.upfront_budget_limit = opt_a.upfront_cost_inr
-            project.monthly_budget_limit = max(project.monthly_budget_limit, opt_a.monthly_cost_inr)
+            project.upfront_budget_limit = float(opt_a.upfront_cost_inr)
+            project.monthly_budget_limit = max(float(project.monthly_budget_limit), float(opt_a.monthly_cost_inr))
             project.status = "APPROVED"
             db.commit()
-            return run_project_planning(project_id, db)
+            final_resp = run_project_planning(project_id, db)
+            final_resp.status = "APPROVED"
+            if final_resp.synthesized_plan:
+                final_resp.synthesized_plan.plan_status = "APPROVED"
+                final_resp.synthesized_plan.escalation_options = []
+            return final_resp
         else:
             project.status = "APPROVED"
             db.commit()
@@ -444,15 +451,22 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
         detail = get_project(project_id, db)
         if detail.synthesized_plan and len(detail.synthesized_plan.escalation_options) > 1:
             opt_b = detail.synthesized_plan.escalation_options[1]
+            project.prefer_economy_freight = True
             if opt_b.commute_mins > project.max_commute_mins:
-                project.max_commute_mins = opt_b.commute_mins
+                project.max_commute_mins = int(opt_b.commute_mins)
             if opt_b.upfront_cost_inr > project.upfront_budget_limit:
-                project.upfront_budget_limit = opt_b.upfront_cost_inr
+                project.upfront_budget_limit = float(opt_b.upfront_cost_inr)
             project.status = "APPROVED"
             db.commit()
-            return run_project_planning(project_id, db)
+            final_resp = run_project_planning(project_id, db)
+            final_resp.status = "APPROVED"
+            if final_resp.synthesized_plan:
+                final_resp.synthesized_plan.plan_status = "APPROVED"
+                final_resp.synthesized_plan.escalation_options = []
+            return final_resp
         else:
             project.status = "APPROVED"
+            db.commit()
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported decision action '{req.decision_action}'.")
 

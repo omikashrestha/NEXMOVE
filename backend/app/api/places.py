@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/places", tags=["Places & Workplaces"])
 
 class CitySuggestion(BaseModel):
     name: str
+    city: str
     state: str
     lat: float
     lon: float
@@ -20,6 +21,7 @@ class CitySuggestion(BaseModel):
 
 class WorkplaceSuggestion(BaseModel):
     name: str
+    workplace: str
     area: str
     category: str
     city: str
@@ -38,6 +40,7 @@ def list_cities(q: str = Query("", description="Search term for city name or sta
     return [
         CitySuggestion(
             name=c["name"],
+            city=c["name"],
             state=c["state"],
             lat=c["lat"],
             lon=c["lon"]
@@ -53,7 +56,16 @@ def list_workplaces(
 ):
     """Returns major business districts, IT corridors, tech parks, and commercial hubs for a city."""
     results = search_workplaces(city_name=city, query=q)
-    return [WorkplaceSuggestion(**w) for w in results]
+    return [
+        WorkplaceSuggestion(
+            name=w["name"],
+            workplace=w["name"],
+            area=w["area"],
+            category=w["category"],
+            city=w["city"]
+        )
+        for w in results
+    ]
 
 
 @router.get("/distance", response_model=DistanceEstimateResponse)

@@ -50,6 +50,7 @@ class RelocationProject(Base):
     target_workplace = Column(String(200), default="City Center", nullable=False)
     max_commute_mins = Column(Integer, default=45, nullable=False)
     selected_property_id = Column(String(50), nullable=True)
+    prefer_economy_freight = Column(Boolean, default=False, nullable=True)
     status = Column(String(50), default="DRAFT", nullable=False)  # DRAFT, REASONING, CONSENSUS_REACHED, AWAITING_USER_DECISION, ACTIVE, APPROVED
 
     created_at = Column(DateTime, default=utc_now, nullable=False)

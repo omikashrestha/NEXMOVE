@@ -1,26 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { 
-  Building2, 
   MapPin, 
   Calendar, 
-  Wallet, 
   Check, 
   ArrowRight, 
   ArrowLeft, 
   RefreshCw,
-  Sparkles,
-  Info,
-  CheckCircle2,
+  Sparkles, 
   AlertCircle,
-  Globe,
-  Home,
   Briefcase,
-  Users,
-  Search
+  Users
 } from "lucide-react";
-import { formatCurrency, CURRENCY_OPTIONS, convertToInr } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 
 interface WizardFormProps {
   onSuccess: (projectData: any) => void;
@@ -30,10 +23,44 @@ interface WizardFormProps {
 }
 
 interface PlaceCity {
-  city: string;
-  state: string;
-  tier: number;
+  name: string;
+  city?: string;
+  state?: string;
+  lat?: number;
+  lon?: number;
 }
+
+interface PlaceWorkplace {
+  name: string;
+  workplace?: string;
+  area?: string;
+  category?: string;
+  city?: string;
+}
+
+const getCityName = (c: any): string => {
+  if (!c) return "";
+  if (typeof c === "string") return c.trim();
+  const val = c.city || c.name || "";
+  return typeof val === "string" ? val.trim() : "";
+};
+
+const getCityState = (c: any): string => {
+  if (!c || typeof c === "string") return "";
+  return typeof c.state === "string" ? c.state.trim() : "";
+};
+
+const getWorkplaceName = (w: any): string => {
+  if (!w) return "";
+  if (typeof w === "string") return w.trim();
+  const val = w.name || w.workplace || "";
+  return typeof val === "string" ? val.trim() : "";
+};
+
+const getWorkplaceArea = (w: any): string => {
+  if (!w || typeof w === "string") return "";
+  return typeof w.area === "string" ? w.area.trim() : "";
+};
 
 export default function WizardForm({
   onSuccess,
@@ -61,7 +88,7 @@ export default function WizardForm({
   const [hasPets, setHasPets] = useState(true);
   const [workplace, setWorkplace] = useState("Manyata Tech Park");
   const [commuteMins, setCommuteMins] = useState(40);
-  const [workplaceSuggestions, setWorkplaceSuggestions] = useState<string[]>([]);
+  const [workplaceSuggestions, setWorkplaceSuggestions] = useState<PlaceWorkplace[]>([]);
   const [showWorkplaceMenu, setShowWorkplaceMenu] = useState(false);
 
   // Step 3: Budget
@@ -82,19 +109,24 @@ export default function WizardForm({
 
   // Fetch city suggestions for origin
   useEffect(() => {
-    if (!origin || origin.length < 1) {
+    const q = (origin || "").trim();
+    if (q.length < 1) {
       setOriginSuggestions([]);
       return;
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`${apiBase}/api/places/cities?q=${encodeURIComponent(origin)}&limit=6`);
+        const res = await fetch(`${apiBase}/api/places/cities?q=${encodeURIComponent(q)}&limit=6`);
         if (res.ok) {
           const data = await res.json();
-          setOriginSuggestions(data);
+          if (Array.isArray(data)) {
+            setOriginSuggestions(data);
+          } else {
+            setOriginSuggestions([]);
+          }
         }
       } catch {
-        // silent fallback to manual typing
+        setOriginSuggestions([]);
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -102,19 +134,24 @@ export default function WizardForm({
 
   // Fetch city suggestions for destination
   useEffect(() => {
-    if (!destination || destination.length < 1) {
+    const q = (destination || "").trim();
+    if (q.length < 1) {
       setDestSuggestions([]);
       return;
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`${apiBase}/api/places/cities?q=${encodeURIComponent(destination)}&limit=6`);
+        const res = await fetch(`${apiBase}/api/places/cities?q=${encodeURIComponent(q)}&limit=6`);
         if (res.ok) {
           const data = await res.json();
-          setDestSuggestions(data);
+          if (Array.isArray(data)) {
+            setDestSuggestions(data);
+          } else {
+            setDestSuggestions([]);
+          }
         }
       } catch {
-        // silent fallback
+        setDestSuggestions([]);
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -122,20 +159,26 @@ export default function WizardForm({
 
   // Fetch workplace suggestions when destination changes or user types
   useEffect(() => {
-    if (!destination) {
+    const dest = (destination || "").trim();
+    if (!dest) {
       setWorkplaceSuggestions([]);
       return;
     }
     const timer = setTimeout(async () => {
       try {
-        const qParam = workplace ? `&q=${encodeURIComponent(workplace)}` : "";
-        const res = await fetch(`${apiBase}/api/places/workplaces?city=${encodeURIComponent(destination)}${qParam}&limit=6`);
+        const wpQ = (workplace || "").trim();
+        const qParam = wpQ ? `&q=${encodeURIComponent(wpQ)}` : "";
+        const res = await fetch(`${apiBase}/api/places/workplaces?city=${encodeURIComponent(dest)}${qParam}&limit=6`);
         if (res.ok) {
           const data = await res.json();
-          setWorkplaceSuggestions(data);
+          if (Array.isArray(data)) {
+            setWorkplaceSuggestions(data);
+          } else {
+            setWorkplaceSuggestions([]);
+          }
         }
       } catch {
-        // silent fallback
+        setWorkplaceSuggestions([]);
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -145,12 +188,16 @@ export default function WizardForm({
   const handleNext = () => {
     setErrorMessage(null);
 
+    const originClean = (origin || "").trim();
+    const destClean = (destination || "").trim();
+    const workplaceClean = (workplace || "").trim();
+
     if (currentStep === 1) {
-      if (!origin.trim()) {
+      if (!originClean) {
         setErrorMessage("Please enter your current departure city.");
         return;
       }
-      if (!destination.trim()) {
+      if (!destClean) {
         setErrorMessage("Please enter your destination city.");
         return;
       }
@@ -161,7 +208,7 @@ export default function WizardForm({
     }
 
     if (currentStep === 2) {
-      if (!workplace.trim()) {
+      if (!workplaceClean) {
         setErrorMessage("Please enter your target workplace or preferred area.");
         return;
       }
@@ -190,15 +237,14 @@ export default function WizardForm({
     }
   };
 
-  const handleCurrencySelect = (newCurr: string) => {
-    setCurrency(newCurr);
-    if (onCurrencyChange) onCurrencyChange(newCurr);
-  };
-
   // Submit and create plan
   const handleSubmit = async () => {
     setLoading(true);
     setErrorMessage(null);
+
+    const originClean = (origin || "").trim();
+    const destClean = (destination || "").trim();
+    const workplaceClean = (workplace || "").trim();
 
     try {
       // 1. Create Project
@@ -208,14 +254,14 @@ export default function WizardForm({
         body: JSON.stringify({
           user_email: "user@example.com",
           user_name: "Relocation Planner",
-          origin_city: origin.trim(),
-          destination_city: destination.trim(),
+          origin_city: originClean,
+          destination_city: destClean,
           target_move_date: moveDate,
           upfront_budget_limit_inr: upfrontBudgetInr,
           monthly_budget_limit_inr: monthlyBudgetInr,
           home_bhk: bhk,
           has_pets: hasPets,
-          target_workplace: workplace.trim(),
+          target_workplace: workplaceClean,
           max_commute_mins: commuteMins,
         }),
       });
@@ -246,7 +292,7 @@ export default function WizardForm({
     }
   };
 
-  const quickCities = ["Bengaluru", "Kolkata", "Pune", "Mumbai", "Hyderabad", "Delhi NCR"];
+  const quickCities = ["Bengaluru", "Kolkata", "Pune", "Mumbai", "Hyderabad", "Bhopal", "Delhi"];
 
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm max-w-3xl mx-auto">
@@ -330,7 +376,7 @@ export default function WizardForm({
                   }}
                   onFocus={() => setShowOriginMenu(true)}
                   onBlur={() => setTimeout(() => setShowOriginMenu(false), 200)}
-                  placeholder="e.g. Pune, Patna, Jaipur..."
+                  placeholder="e.g. Pune, Bhopal, Patna, Jaipur..."
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -338,31 +384,36 @@ export default function WizardForm({
               {/* Origin Autocomplete Menu */}
               {showOriginMenu && originSuggestions.length > 0 && (
                 <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                  {originSuggestions.map((item) => (
-                    <button
-                      key={item.city}
-                      type="button"
-                      onMouseDown={() => {
-                        setOrigin(item.city);
-                        setShowOriginMenu(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
-                    >
-                      <span className="font-semibold text-slate-800">{item.city}</span>
-                      <span className="text-[10px] text-slate-400">{item.state}</span>
-                    </button>
-                  ))}
+                  {originSuggestions.map((item, idx) => {
+                    const cName = getCityName(item);
+                    const sName = getCityState(item);
+                    if (!cName) return null;
+                    return (
+                      <button
+                        key={`origin-${cName}-${idx}`}
+                        type="button"
+                        onMouseDown={() => {
+                          setOrigin(cName);
+                          setShowOriginMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
+                      >
+                        <span className="font-semibold text-slate-800">{cName}</span>
+                        {sName && <span className="text-[10px] text-slate-400">{sName}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               <div className="flex flex-wrap gap-1 mt-1.5">
-                {["Pune", "Mumbai", "Bengaluru", "Kolkata"].map((c) => (
+                {["Pune", "Mumbai", "Bhopal", "Bengaluru", "Kolkata"].map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => setOrigin(c)}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
-                      origin.toLowerCase() === c.toLowerCase()
+                      (origin || "").toLowerCase() === c.toLowerCase()
                         ? "bg-slate-800 text-white border-slate-800"
                         : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
                     }`}
@@ -398,26 +449,42 @@ export default function WizardForm({
               {/* Destination Autocomplete Menu */}
               {showDestMenu && destSuggestions.length > 0 && (
                 <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                  {destSuggestions.map((item) => (
-                    <button
-                      key={item.city}
-                      type="button"
-                      onMouseDown={() => {
-                        setDestination(item.city);
-                        setShowDestMenu(false);
-                        // update workplace default if switching known cities
-                        if (item.city === "Kolkata") setWorkplace("Salt Lake Sector V");
-                        else if (item.city === "Bengaluru") setWorkplace("Manyata Tech Park");
-                        else if (item.city === "Pune") setWorkplace("Hinjawadi Tech Park");
-                        else if (item.city === "Mumbai") setWorkplace("Bandra Kurla Complex (BKC)");
-                        else if (item.city === "Hyderabad") setWorkplace("Hitec City");
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
-                    >
-                      <span className="font-semibold text-slate-800">{item.city}</span>
-                      <span className="text-[10px] text-slate-400">{item.state}</span>
-                    </button>
-                  ))}
+                  {destSuggestions.map((item, idx) => {
+                    const cName = getCityName(item);
+                    const sName = getCityState(item);
+                    if (!cName) return null;
+                    return (
+                      <button
+                        key={`dest-${cName}-${idx}`}
+                        type="button"
+                        onMouseDown={() => {
+                          setDestination(cName);
+                          setShowDestMenu(false);
+                          const lower = cName.toLowerCase();
+                          if (lower === "kolkata") setWorkplace("Salt Lake Sector V");
+                          else if (lower === "bengaluru") setWorkplace("Manyata Tech Park");
+                          else if (lower === "pune") setWorkplace("Hinjawadi Rajiv Gandhi Infotech Park (Ph 1, 2, 3)");
+                          else if (lower === "mumbai") setWorkplace("Bandra Kurla Complex (BKC)");
+                          else if (lower === "hyderabad") setWorkplace("HITEC City (Cyber Towers / Cyber Gateway)");
+                          else if (lower === "bhopal") setWorkplace("MP Nagar Commercial Zone");
+                          else if (lower === "indore") setWorkplace("Crystal IT Park");
+                          else if (lower === "delhi") setWorkplace("Connaught Place (CP)");
+                          else if (lower === "gurugram" || lower === "gurgaon") setWorkplace("DLF Cyber City & Cyber Hub");
+                          else if (lower === "noida") setWorkplace("Sector 62 IT Corridor");
+                          else if (lower === "chennai") setWorkplace("OMR IT Corridor (Tidel Park & Ascendas)");
+                          else if (lower === "patna") setWorkplace("Dak Bungalow Crossing");
+                          else if (lower === "ahmedabad") setWorkplace("GIFT City (Gujarat International Finance Tec-City)");
+                          else if (lower === "jaipur") setWorkplace("Mahindra World City SEZ");
+                          else if (lower === "kochi") setWorkplace("Infopark Phase 1 & 2");
+                          else setWorkplace(`${cName} Central`);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
+                      >
+                        <span className="font-semibold text-slate-800">{cName}</span>
+                        {sName && <span className="text-[10px] text-slate-400">{sName}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -428,14 +495,17 @@ export default function WizardForm({
                     type="button"
                     onClick={() => {
                       setDestination(c);
-                      if (c === "Kolkata") setWorkplace("Salt Lake Sector V");
-                      else if (c === "Bengaluru") setWorkplace("Manyata Tech Park");
-                      else if (c === "Pune") setWorkplace("Hinjawadi Tech Park");
-                      else if (c === "Mumbai") setWorkplace("Bandra Kurla Complex (BKC)");
-                      else if (c === "Hyderabad") setWorkplace("Hitec City");
+                      const lower = c.toLowerCase();
+                      if (lower === "kolkata") setWorkplace("Salt Lake Sector V");
+                      else if (lower === "bengaluru") setWorkplace("Manyata Tech Park");
+                      else if (lower === "pune") setWorkplace("Hinjawadi Rajiv Gandhi Infotech Park (Ph 1, 2, 3)");
+                      else if (lower === "mumbai") setWorkplace("Bandra Kurla Complex (BKC)");
+                      else if (lower === "hyderabad") setWorkplace("HITEC City (Cyber Towers / Cyber Gateway)");
+                      else if (lower === "bhopal") setWorkplace("MP Nagar Commercial Zone");
+                      else setWorkplace(`${c} Central`);
                     }}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
-                      destination.toLowerCase() === c.toLowerCase()
+                      (destination || "").toLowerCase() === c.toLowerCase()
                         ? "bg-blue-600 text-white border-blue-600"
                         : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
                     }`}
@@ -565,40 +635,53 @@ export default function WizardForm({
               {/* Workplace Suggestions Dropdown */}
               {showWorkplaceMenu && workplaceSuggestions.length > 0 && (
                 <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                  {workplaceSuggestions.map((wp) => (
-                    <button
-                      key={wp}
-                      type="button"
-                      onMouseDown={() => {
-                        setWorkplace(wp);
-                        setShowWorkplaceMenu(false);
-                      }}
-                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center space-x-2 text-xs border-b border-slate-50 last:border-0"
-                    >
-                      <Briefcase className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                      <span className="font-semibold text-slate-800">{wp}</span>
-                    </button>
-                  ))}
+                  {workplaceSuggestions.map((wp, idx) => {
+                    const wName = getWorkplaceName(wp);
+                    const wArea = getWorkplaceArea(wp);
+                    if (!wName) return null;
+                    return (
+                      <button
+                        key={`wp-${wName}-${idx}`}
+                        type="button"
+                        onMouseDown={() => {
+                          setWorkplace(wName);
+                          setShowWorkplaceMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center space-x-2 text-xs border-b border-slate-50 last:border-0"
+                      >
+                        <Briefcase className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-slate-800">{wName}</span>
+                          {wArea && <span className="text-[10px] text-slate-400">{wArea}</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {/* Quick suggestion chips */}
               {workplaceSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5">
-                  {workplaceSuggestions.slice(0, 3).map((wp) => (
-                    <button
-                      key={wp}
-                      type="button"
-                      onClick={() => setWorkplace(wp)}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
-                        workplace.toLowerCase() === wp.toLowerCase()
-                          ? "bg-blue-600 text-white border-blue-600"
-                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
-                      }`}
-                    >
-                      {wp}
-                    </button>
-                  ))}
+                  {workplaceSuggestions.slice(0, 3).map((wp, idx) => {
+                    const wName = getWorkplaceName(wp);
+                    if (!wName) return null;
+                    const isSelected = (workplace || "").toLowerCase() === wName.toLowerCase();
+                    return (
+                      <button
+                        key={`wp-chip-${wName}-${idx}`}
+                        type="button"
+                        onClick={() => setWorkplace(wName)}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
+                          isSelected
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        {wName}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               <p className="text-[11px] text-slate-400 mt-1">We calculate transit times from housing options to this office hub</p>

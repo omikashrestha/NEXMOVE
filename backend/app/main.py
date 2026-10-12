@@ -24,6 +24,8 @@ async def lifespan(app: FastAPI):
                 conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN max_commute_mins INTEGER DEFAULT 45;"))
             if "selected_property_id" not in cols:
                 conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN selected_property_id VARCHAR(50);"))
+            if "prefer_economy_freight" not in cols:
+                conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN prefer_economy_freight BOOLEAN DEFAULT 0;"))
             conn.commit()
     except Exception:
         pass

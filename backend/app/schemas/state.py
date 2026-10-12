@@ -22,6 +22,7 @@ class RelocationProfile(BaseModel):
     target_workplace: str = Field("Manyata Tech Park", description="Workplace locality for commute tracking")
     max_commute_mins: int = Field(45, ge=5, le=120, description="Soft preference for maximum commute")
     selected_property_id: Optional[str] = Field(None, description="Explicit property ID selected by user")
+    prefer_economy_freight: bool = Field(False, description="Whether user accepted economy shared freight")
 
 
 class AgentMessage(BaseModel):

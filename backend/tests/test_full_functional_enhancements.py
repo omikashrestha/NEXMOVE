@@ -209,6 +209,54 @@ def test_scenario_04_places_api(client):
     assert 700 <= dist_data["distance_km"] <= 1000
 
 
+def test_scenario_bhopal_departure_city_regression(client):
+    """Regression test: Bhopal autocomplete returns both 'name' and 'city' fields, and works end-to-end."""
+    # 1. Autocomplete for Bhopal
+    bhopal_res = client.get("/api/places/cities?q=Bhopal")
+    assert bhopal_res.status_code == 200
+    b_cities = bhopal_res.json()
+    assert len(b_cities) >= 1
+    first_match = b_cities[0]
+    assert first_match["name"] == "Bhopal"
+    assert first_match["city"] == "Bhopal"
+    assert first_match["state"] == "Madhya Pradesh"
+
+    # 2. Workplaces for Bhopal
+    wp_res = client.get("/api/places/workplaces?city=Bhopal")
+    assert wp_res.status_code == 200
+    b_wp = wp_res.json()
+    assert len(b_wp) >= 1
+    assert "name" in b_wp[0]
+    assert "workplace" in b_wp[0]
+
+    # 3. Create and run project with Bhopal departure to Bengaluru
+    proj_res = client.post("/api/projects", json={
+        "user_email": "bhopal_client@test.com",
+        "user_name": "Bhopal User",
+        "origin_city": "Bhopal",
+        "destination_city": "Bengaluru",
+        "target_move_date": "2026-11-20",
+        "upfront_budget_limit_inr": 200000,
+        "monthly_budget_limit_inr": 50000,
+        "home_bhk": 2,
+        "has_pets": False,
+        "target_workplace": "Manyata Tech Park",
+        "max_commute_mins": 45
+    })
+    assert proj_res.status_code == 201
+    pid = proj_res.json()["project_id"]
+
+    run_res = client.post(f"/api/projects/{pid}/run")
+    assert run_res.status_code == 200
+    plan = run_res.json()
+    assert plan["origin_city"] == "Bhopal"
+    assert plan["destination_city"] == "Bengaluru"
+    assert plan["housing_proposal"]["city"] == "Bengaluru"
+    assert "bhopal" in plan["logistics_estimate"]["route"].lower()
+    assert "bengaluru" in plan["logistics_estimate"]["route"].lower()
+    assert plan["status"] in ["CONSENSUS_REACHED", "AWAITING_USER_DECISION", "APPROVED"]
+
+
 # ---------------------------------------------------------------------------
 # SCENARIO 5: Workplace Commute Estimation
 # ---------------------------------------------------------------------------
@@ -488,3 +536,119 @@ def test_scenario_12_end_to_end_project_lifecycle(client):
     a_res = client.post(f"/api/projects/{pid}/decide", json={"decision_action": "APPROVE"})
     assert a_res.status_code == 200
     assert a_res.json()["status"] == "APPROVED"
+
+
+# ---------------------------------------------------------------------------
+# SCENARIO 13: ₹50,000 Upfront Budget Prevents False Agreement & Resolves with Choice A
+# ---------------------------------------------------------------------------
+def test_scenario_13_fifty_thousand_budget_requires_escalation_and_choice_a(client):
+    """A ₹50,000 upfront budget must NEVER be marked agreed without user decision. Choice A expands budget and approves."""
+    c_res = client.post("/api/projects", json={
+        "user_email": "tight_budget_a@nexmove.internal",
+        "user_name": "Tight Budget User A",
+        "origin_city": "Pune",
+        "destination_city": "Bengaluru",
+        "target_move_date": "2026-11-20",
+        "upfront_budget_limit_inr": 50000,  # Tight budget below moving + deposit costs
+        "monthly_budget_limit_inr": 45000,
+        "home_bhk": 2,
+        "has_pets": False,
+        "target_workplace": "Manyata Tech Park",
+        "max_commute_mins": 45
+    })
+    assert c_res.status_code == 201
+    pid = c_res.json()["project_id"]
+
+    # 1. Run planning: Must escalate, NEVER mark as agreed or approved
+    r_res = client.post(f"/api/projects/{pid}/run")
+    assert r_res.status_code == 200
+    plan = r_res.json()
+    assert plan["status"] == "AWAITING_USER_DECISION"
+    assert plan["status"] != "APPROVED"
+    assert plan["status"] != "CONSENSUS_REACHED"
+    
+    # Escalation options must exist with clear trade-offs
+    synth = plan["synthesized_plan"]
+    assert synth is not None
+    assert len(synth["escalation_options"]) >= 2
+    opt_a = synth["escalation_options"][0]
+    assert opt_a["option_id"] == "A"
+    assert opt_a["upfront_cost_inr"] > 50000  # Outlay exceeds limit
+
+    # 2. Select Choice A: Expands budget to required outlay and transitions to APPROVED
+    decide_res = client.post(f"/api/projects/{pid}/decide", json={"decision_action": "SELECT_OPTION_A"})
+    assert decide_res.status_code == 200
+    updated = decide_res.json()
+    assert updated["status"] == "APPROVED"
+    assert updated["upfront_budget_limit_inr"] == opt_a["upfront_cost_inr"]
+    assert updated["synthesized_plan"]["plan_status"] == "APPROVED"
+    assert len(updated["synthesized_plan"]["escalation_options"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# SCENARIO 14: ₹50,000 Upfront Budget Resolves with Choice B (Shared Freight & Commute)
+# ---------------------------------------------------------------------------
+def test_scenario_14_fifty_thousand_budget_resolves_with_choice_b(client):
+    """Choice B applies shared economy freight and extended commute, then approves."""
+    c_res = client.post("/api/projects", json={
+        "user_email": "tight_budget_b@nexmove.internal",
+        "user_name": "Tight Budget User B",
+        "origin_city": "Pune",
+        "destination_city": "Bengaluru",
+        "target_move_date": "2026-11-20",
+        "upfront_budget_limit_inr": 50000,
+        "monthly_budget_limit_inr": 45000,
+        "home_bhk": 2,
+        "has_pets": False,
+        "target_workplace": "Manyata Tech Park",
+        "max_commute_mins": 30
+    })
+    assert c_res.status_code == 201
+    pid = c_res.json()["project_id"]
+
+    r_res = client.post(f"/api/projects/{pid}/run")
+    assert r_res.status_code == 200
+    plan = r_res.json()
+    assert plan["status"] == "AWAITING_USER_DECISION"
+
+    # Select Choice B
+    decide_res = client.post(f"/api/projects/{pid}/decide", json={"decision_action": "SELECT_OPTION_B"})
+    assert decide_res.status_code == 200
+    updated = decide_res.json()
+    assert updated["status"] == "APPROVED"
+    assert updated["synthesized_plan"]["plan_status"] == "APPROVED"
+    assert len(updated["synthesized_plan"]["escalation_options"]) == 0
+    # Freight estimate reflects economy shared transit
+    assert "Economy" in updated["logistics_estimate"]["vehicle_type"] or updated["logistics_estimate"]["estimated_transit_days"] >= 4
+
+
+# ---------------------------------------------------------------------------
+# SCENARIO 15: All Three Sample Lease Documents Produce Content-Specific Results
+# ---------------------------------------------------------------------------
+def test_scenario_15_all_three_sample_lease_documents(client):
+    """Each of the 3 sample lease documents produces distinct, content-specific audit findings."""
+    from backend.app.core.config import DATA_DIR
+    doc_agent = DocumentIntelligenceAgent()
+
+    # 1. Standard Lease
+    audit_std = doc_agent.analyze_document(file_path=DATA_DIR / "sample_leases" / "lease_standard_inr.txt")
+    assert audit_std.parse_status == "SUCCESS"
+    assert audit_std.extracted_monthly_rent_inr == 30000.0
+    assert audit_std.extracted_security_deposit_inr == 60000.0
+    high_risks_std = [c for c in audit_std.flagged_clauses_for_review if c.risk_level == "HIGH"]
+    assert len(high_risks_std) == 0
+
+    # 2. Strict / Penalty Lease
+    audit_red = doc_agent.analyze_document(file_path=DATA_DIR / "sample_leases" / "lease_redflag_inr.txt")
+    assert audit_red.parse_status == "SUCCESS"
+    clause_titles = [c.clause_title for c in audit_red.flagged_clauses_for_review]
+    assert any("Painting" in t for t in clause_titles)
+    assert any("Pet" in t for t in clause_titles)
+    assert any("Lock-In" in t or "Early Exit" in t for t in clause_titles)
+
+    # 3. Draft / Ambiguous Lease
+    audit_amb = doc_agent.analyze_document(file_path=DATA_DIR / "sample_leases" / "lease_ambiguous_inr.txt")
+    assert audit_amb.parse_status == "NEEDS_MANUAL_REVIEW"
+    assert audit_amb.extracted_monthly_rent_inr is None
+    assert any("Missing Key Financial Terms" in c.clause_title for c in audit_amb.flagged_clauses_for_review)
+
