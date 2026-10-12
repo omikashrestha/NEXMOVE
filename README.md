@@ -106,7 +106,26 @@ Full documentation available in [`docs/benchmark_evaluation_report.md`](file:///
 
 ---
 
-## 5. Quick Start & Execution Guide
+## 5. Enhanced Functional Capabilities
+
+1. **Any Indian City & Highway Corridor Distance Engine**:
+   - Integrated Places Engine (`backend/app/core/places.py`) covering 30+ major Indian metropolitan centers and state capitals.
+   - Intelligent distance calculation combining express highway corridors with geodesic Haversine distance and regional tortuosity factors ($\times 1.25$).
+   - Searchable autocomplete endpoints: `GET /api/places/cities?q=...`, `GET /api/places/workplaces?city=...`, and `GET /api/places/distance`.
+
+2. **Multiple Housing Candidate Options & Selection**:
+   - `HousingResearchAgent` yields all matching candidate properties in the destination city.
+   - Candidate comparison gallery with filtering (BHK, Pets) and multi-factor sorting (Rent, Upfront Outlay, Commute).
+   - `POST /api/projects/{id}/select-property` enables immediate switching of the active property, triggering plan-wide recalculation.
+   - `POST /api/projects/{id}/custom-property` enables manual entry of unlisted properties in any city with zero data substitution.
+
+3. **Complete Lease Intelligence & Document Upload**:
+   - `POST /api/documents/upload` accepts `.txt` and `.pdf` tenancy contracts.
+   - Categorizes clauses into high-severity ("Needs Attention"), medium-severity ("Worth Checking"), and low-severity ("Informational Notes") with targeted landlord negotiation questions.
+
+---
+
+## 6. Quick Start & Execution Guide
 
 ### Prerequisites
 - **Python 3.11, 3.12, or 3.14** (Verified compatible on macOS ARM64 and Linux)
@@ -125,7 +144,7 @@ source .venv/bin/activate
 # Install Python dependencies
 pip install -r backend/requirements.txt
 
-# Run complete test suite (61 tests across agents, API, audit, benchmarks, DB, schemas)
+# Run complete test suite (83 tests passing across 9 test suites)
 PYTHONPATH=. pytest -v backend/tests
 ```
 
@@ -155,28 +174,29 @@ Import [`n8n/workflows/WF-E2E-Relocation-Pipeline.json`](file:///Users/omikashre
 
 ---
 
-## 6. Team & Workstream Ownership
+## 7. Team & Workstream Ownership
 
 | Member | GitHub Username | Role & Workstream Ownership |
 | :--- | :--- | :--- |
-| **Omika Shrestha** | [`omikashrestha`](https://github.com/omikashrestha) | LangGraph State Core, Decision & Synthesis Agent, Replanning API router |
+| **Omika Shrestha** | [`omikashrestha`](https://github.com/omikashrestha) | LangGraph State Core, Decision & Synthesis Agent, Replanning API router, Places Engine |
 | **Pritika Kurup** | [`pritikakurup`](https://github.com/pritikakurup) | Housing Research Agent, Document Intelligence Agent, Benchmark Datasets |
 | **Neel Khule** | [`wyvern10101`](https://github.com/wyvern10101) | Budget Analyst Agent (INR Math), Schedule Optimization Agent, n8n Workflow |
 | **Tanmay Salunkhe** | [`tanmays23`](https://github.com/tanmays23) | Logistics Agent, SQLAlchemy DB Models, Next.js Prototype Dashboard |
 
 ---
 
-## 7. System Boundaries, Disclaimers & Known Limitations
+## 8. System Boundaries, Disclaimers & Known Limitations
 
-1. **Synthetic Demonstration Benchmarks**: All rental properties, society maintenance fees, and logistics tariffs are curated synthetic benchmark records calibrated to realistic Pune $\rightarrow$ Bengaluru market conditions. NEXMOVE does not access live MLS rental listings or commercial mover dispatch networks.
+1. **Synthetic Demonstration Benchmarks**: Rental properties and logistics tariffs in the bundled benchmark files are curated synthetic records calibrated for demonstration. When searching cities without pre-bundled listings, NEXMOVE honestly returns `NO_HOUSING_AVAILABLE` without silent cross-city data contamination and invites user-supplied property entry.
 2. **Informational Document Intelligence**: Lease contract clause audits identify regional common-practice risk patterns for educational and review purposes only. They **do not constitute legal advice** or formal attorney representation.
 3. **No Commercial Bookings or Financial Transactions**: NEXMOVE does not charge bank accounts, transfer security deposits, or execute binding contracts.
 4. **n8n Runtime Status**: The workflow definition [`WF-E2E-Relocation-Pipeline.json`](file:///Users/omikashrestha/Desktop/NEXMOVE%20-%20flexi/n8n/workflows/WF-E2E-Relocation-Pipeline.json) is fully exported and structurally verified. However, live runtime webhook execution remains **unverified** unless an active local n8n daemon is launched and configured.
 
 ---
 
-## 8. Milestone Completion Status
+## 9. Milestone Completion Status
 - [x] **Milestone 1**: Foundation, Pydantic schemas, SQLAlchemy models, synthetic INR benchmark datasets, and unit test suite (18 tests).
 - [x] **Milestone 2**: 6 Domain Agents, LangGraph state machine, revision loop, and audit tests (41 tests).
 - [x] **Milestone 3**: Orchestration (FastAPI gateway, n8n workflow, Next.js prototype dashboard, local integration smoke test, 51 tests).
 - [x] **Milestone 4**: 10 Benchmark evaluation scenarios, interactive replanning demonstration script, submission documentation, and complete verification (61 tests passing).
+- [x] **Milestone 5**: Full functional enhancements, places autocomplete engine, multi-option property selection, custom property manual entry, lease document upload, and 12-scenario regression suite (83 tests passing).

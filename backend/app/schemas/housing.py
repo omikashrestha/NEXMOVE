@@ -25,3 +25,7 @@ class HousingProposal(BaseModel):
     commute_to_workplace_mins: int = Field(..., ge=0, description="Estimated metro/transit commute in minutes")
     safety_score_index: float = Field(..., ge=1.0, le=10.0, description="Safety index from 1.0 to 10.0")
     datasource: str = Field("SAMPLE_BENCHMARK_INR", description="Source indicator for synthetic evaluation data")
+    property_type: str = Field("Gated Society Apartment", description="Rental property type")
+    is_verified: bool = Field(False, description="Whether listing is physically verified vs synthetic illustrative")
+    total_upfront_outlay_inr: Optional[float] = Field(None, description="Upfront move-in outlay (deposit + rent + fee)")
+    total_recurring_monthly_inr: Optional[float] = Field(None, description="Recurring monthly outlay (rent + maintenance)")

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   Building2, 
   MapPin, 
@@ -17,7 +17,8 @@ import {
   Globe,
   Home,
   Briefcase,
-  Users
+  Users,
+  Search
 } from "lucide-react";
 import { formatCurrency, CURRENCY_OPTIONS, convertToInr } from "@/lib/currency";
 
@@ -26,6 +27,12 @@ interface WizardFormProps {
   apiBase: string;
   defaultCurrency?: string;
   onCurrencyChange?: (c: string) => void;
+}
+
+interface PlaceCity {
+  city: string;
+  state: string;
+  tier: number;
 }
 
 export default function WizardForm({
@@ -42,12 +49,20 @@ export default function WizardForm({
   const [destination, setDestination] = useState("Bengaluru");
   const [moveDate, setMoveDate] = useState("2026-11-15");
   
-  // Step 2: Home Preferences
+  // Autocomplete states
+  const [originSuggestions, setOriginSuggestions] = useState<PlaceCity[]>([]);
+  const [showOriginMenu, setShowOriginMenu] = useState(false);
+  const [destSuggestions, setDestSuggestions] = useState<PlaceCity[]>([]);
+  const [showDestMenu, setShowDestMenu] = useState(false);
+
+  // Step 2: Home Preferences & Workplace
   const [bhk, setBhk] = useState(2);
   const [householdOccupants, setHouseholdOccupants] = useState(2);
   const [hasPets, setHasPets] = useState(true);
   const [workplace, setWorkplace] = useState("Manyata Tech Park");
   const [commuteMins, setCommuteMins] = useState(40);
+  const [workplaceSuggestions, setWorkplaceSuggestions] = useState<string[]>([]);
+  const [showWorkplaceMenu, setShowWorkplaceMenu] = useState(false);
 
   // Step 3: Budget
   const [currency, setCurrency] = useState(defaultCurrency);
@@ -64,6 +79,67 @@ export default function WizardForm({
     { number: 3, title: "What is your budget?", short: "Moving Budget" },
     { number: 4, title: "Review your details", short: "Summary" },
   ];
+
+  // Fetch city suggestions for origin
+  useEffect(() => {
+    if (!origin || origin.length < 1) {
+      setOriginSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/places/cities?q=${encodeURIComponent(origin)}&limit=6`);
+        if (res.ok) {
+          const data = await res.json();
+          setOriginSuggestions(data);
+        }
+      } catch {
+        // silent fallback to manual typing
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [origin, apiBase]);
+
+  // Fetch city suggestions for destination
+  useEffect(() => {
+    if (!destination || destination.length < 1) {
+      setDestSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/places/cities?q=${encodeURIComponent(destination)}&limit=6`);
+        if (res.ok) {
+          const data = await res.json();
+          setDestSuggestions(data);
+        }
+      } catch {
+        // silent fallback
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [destination, apiBase]);
+
+  // Fetch workplace suggestions when destination changes or user types
+  useEffect(() => {
+    if (!destination) {
+      setWorkplaceSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const qParam = workplace ? `&q=${encodeURIComponent(workplace)}` : "";
+        const res = await fetch(`${apiBase}/api/places/workplaces?city=${encodeURIComponent(destination)}${qParam}&limit=6`);
+        if (res.ok) {
+          const data = await res.json();
+          setWorkplaceSuggestions(data);
+        }
+      } catch {
+        // silent fallback
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [destination, workplace, apiBase]);
 
   // Validation before advancing step
   const handleNext = () => {
@@ -170,6 +246,8 @@ export default function WizardForm({
     }
   };
 
+  const quickCities = ["Bengaluru", "Kolkata", "Pune", "Mumbai", "Hyderabad", "Delhi NCR"];
+
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm max-w-3xl mx-auto">
       
@@ -230,12 +308,14 @@ export default function WizardForm({
           <div>
             <h3 className="text-xl font-bold text-slate-900">Step 1: Where are you moving?</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Tell us your starting city, new destination, and when you plan to arrive.
+              Search any Indian departure city and destination. Freeform text is supported for all locations.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+            
+            {/* Origin City with Searchable Autocomplete */}
+            <div className="relative">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Current City (Departure)
               </label>
@@ -244,12 +324,38 @@ export default function WizardForm({
                 <input
                   type="text"
                   value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
-                  placeholder="e.g. Pune"
+                  onChange={(e) => {
+                    setOrigin(e.target.value);
+                    setShowOriginMenu(true);
+                  }}
+                  onFocus={() => setShowOriginMenu(true)}
+                  onBlur={() => setTimeout(() => setShowOriginMenu(false), 200)}
+                  placeholder="e.g. Pune, Patna, Jaipur..."
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex gap-1.5 mt-1.5">
+
+              {/* Origin Autocomplete Menu */}
+              {showOriginMenu && originSuggestions.length > 0 && (
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {originSuggestions.map((item) => (
+                    <button
+                      key={item.city}
+                      type="button"
+                      onMouseDown={() => {
+                        setOrigin(item.city);
+                        setShowOriginMenu(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
+                    >
+                      <span className="font-semibold text-slate-800">{item.city}</span>
+                      <span className="text-[10px] text-slate-400">{item.state}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-1 mt-1.5">
                 {["Pune", "Mumbai", "Bengaluru", "Kolkata"].map((c) => (
                   <button
                     key={c}
@@ -268,7 +374,8 @@ export default function WizardForm({
               <p className="text-[11px] text-slate-400 mt-1">Where your household items are located</p>
             </div>
 
-            <div>
+            {/* Destination City with Searchable Autocomplete */}
+            <div className="relative">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Destination City (Arrival)
               </label>
@@ -277,23 +384,55 @@ export default function WizardForm({
                 <input
                   type="text"
                   value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="e.g. Bengaluru"
+                  onChange={(e) => {
+                    setDestination(e.target.value);
+                    setShowDestMenu(true);
+                  }}
+                  onFocus={() => setShowDestMenu(true)}
+                  onBlur={() => setTimeout(() => setShowDestMenu(false), 200)}
+                  placeholder="e.g. Bengaluru, Kolkata, Mumbai..."
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex gap-1.5 mt-1.5">
-                {["Bengaluru", "Kolkata", "Pune"].map((c) => (
+
+              {/* Destination Autocomplete Menu */}
+              {showDestMenu && destSuggestions.length > 0 && (
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {destSuggestions.map((item) => (
+                    <button
+                      key={item.city}
+                      type="button"
+                      onMouseDown={() => {
+                        setDestination(item.city);
+                        setShowDestMenu(false);
+                        // update workplace default if switching known cities
+                        if (item.city === "Kolkata") setWorkplace("Salt Lake Sector V");
+                        else if (item.city === "Bengaluru") setWorkplace("Manyata Tech Park");
+                        else if (item.city === "Pune") setWorkplace("Hinjawadi Tech Park");
+                        else if (item.city === "Mumbai") setWorkplace("Bandra Kurla Complex (BKC)");
+                        else if (item.city === "Hyderabad") setWorkplace("Hitec City");
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
+                    >
+                      <span className="font-semibold text-slate-800">{item.city}</span>
+                      <span className="text-[10px] text-slate-400">{item.state}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {quickCities.map((c) => (
                   <button
                     key={c}
                     type="button"
                     onClick={() => {
                       setDestination(c);
-                      if (c === "Kolkata" && workplace === "Manyata Tech Park") {
-                        setWorkplace("Salt Lake Sector V");
-                      } else if (c === "Bengaluru" && workplace === "Salt Lake Sector V") {
-                        setWorkplace("Manyata Tech Park");
-                      }
+                      if (c === "Kolkata") setWorkplace("Salt Lake Sector V");
+                      else if (c === "Bengaluru") setWorkplace("Manyata Tech Park");
+                      else if (c === "Pune") setWorkplace("Hinjawadi Tech Park");
+                      else if (c === "Mumbai") setWorkplace("Bandra Kurla Complex (BKC)");
+                      else if (c === "Hyderabad") setWorkplace("Hitec City");
                     }}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
                       destination.toLowerCase() === c.toLowerCase()
@@ -305,7 +444,7 @@ export default function WizardForm({
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Where you are searching for a new home</p>
+              <p className="text-[11px] text-slate-400 mt-1">Supports any Indian city (autocomplete or manual entry)</p>
             </div>
           </div>
 
@@ -333,7 +472,7 @@ export default function WizardForm({
           <div>
             <h3 className="text-xl font-bold text-slate-900">Step 2: What home do you need?</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Select apartment size, family pet requirements, and workplace commute location.
+              Select apartment size, family pet requirements, and workplace commute location in {destination}.
             </p>
           </div>
 
@@ -401,9 +540,9 @@ export default function WizardForm({
             </div>
           </div>
 
-          {/* Workplace & Commute */}
+          {/* Workplace & Commute with Autocomplete suggestions */}
           <div className="pt-2 border-t border-slate-100 space-y-4">
-            <div>
+            <div className="relative">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Workplace or Preferred Hub in {destination || "Destination"}
               </label>
@@ -412,12 +551,57 @@ export default function WizardForm({
                 <input
                   type="text"
                   value={workplace}
-                  onChange={(e) => setWorkplace(e.target.value)}
-                  placeholder="e.g. Manyata Tech Park, Whitefield, Cyber City"
+                  onChange={(e) => {
+                    setWorkplace(e.target.value);
+                    setShowWorkplaceMenu(true);
+                  }}
+                  onFocus={() => setShowWorkplaceMenu(true)}
+                  onBlur={() => setTimeout(() => setShowWorkplaceMenu(false), 200)}
+                  placeholder="e.g. Manyata Tech Park, Whitefield, BKC, Salt Lake Sector V"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">We prioritize housing within easy reach of this office</p>
+
+              {/* Workplace Suggestions Dropdown */}
+              {showWorkplaceMenu && workplaceSuggestions.length > 0 && (
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                  {workplaceSuggestions.map((wp) => (
+                    <button
+                      key={wp}
+                      type="button"
+                      onMouseDown={() => {
+                        setWorkplace(wp);
+                        setShowWorkplaceMenu(false);
+                      }}
+                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center space-x-2 text-xs border-b border-slate-50 last:border-0"
+                    >
+                      <Briefcase className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                      <span className="font-semibold text-slate-800">{wp}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Quick suggestion chips */}
+              {workplaceSuggestions.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {workplaceSuggestions.slice(0, 3).map((wp) => (
+                    <button
+                      key={wp}
+                      type="button"
+                      onClick={() => setWorkplace(wp)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
+                        workplace.toLowerCase() === wp.toLowerCase()
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {wp}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-[11px] text-slate-400 mt-1">We calculate transit times from housing options to this office hub</p>
             </div>
 
             <div>
@@ -450,189 +634,174 @@ export default function WizardForm({
           <div>
             <h3 className="text-xl font-bold text-slate-900">Step 3: What is your budget?</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Separate your one-time moving costs from your recurring monthly living budget.
+              Separate your one-time relocation budget from your ongoing monthly living budget.
             </p>
           </div>
 
-          {/* Currency Preference Selector */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center space-x-2">
-              <Globe className="w-4 h-4 text-slate-500" />
+          {/* Upfront Relocation Budget */}
+          <div className="p-5 rounded-2xl bg-blue-50/50 border border-blue-200/80 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div>
-                <span className="font-bold text-slate-800 block">Preferred Currency</span>
-                <span className="text-[11px] text-slate-500">Estimates will display in this currency</span>
+                <span className="text-xs font-bold text-blue-900 block">Upfront Moving Budget</span>
+                <span className="text-[11px] text-blue-700/80">Covers movers, transit insurance, security deposit & advance rent</span>
               </div>
-            </div>
-
-            <select
-              value={currency}
-              onChange={(e) => handleCurrencySelect(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {CURRENCY_OPTIONS.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} ({c.symbol}) — {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Upfront Moving Budget (One-time) */}
-          <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
-            <div className="flex justify-between items-start">
-              <div>
-                <label className="text-xs font-bold text-slate-800 block">
-                  Money Available for Moving (Upfront)
-                </label>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Covers movers truck, security deposit, packing, and travel.
-                </p>
-              </div>
-              <span className="text-base font-extrabold text-blue-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+              <div className="text-lg font-black text-blue-900 bg-white px-3 py-1 rounded-xl border border-blue-200 w-fit">
                 {formatCurrency(upfrontBudgetInr, currency)}
-              </span>
+              </div>
             </div>
 
             <input
               type="range"
               min={40000}
-              max={250000}
+              max={300000}
               step={5000}
               value={upfrontBudgetInr}
               onChange={(e) => setUpfrontBudgetInr(Number(e.target.value))}
               className="w-full accent-blue-600"
             />
-            <div className="flex justify-between text-[10px] text-slate-400">
-              <span>{formatCurrency(40000, currency)}</span>
-              <span>{formatCurrency(150000, currency)}</span>
-              <span>{formatCurrency(250000, currency)}</span>
+            <div className="flex justify-between text-[10px] text-blue-600/70">
+              <span>{formatCurrency(40000, currency)} (Budget)</span>
+              <span>{formatCurrency(160000, currency)} (Recommended)</span>
+              <span>{formatCurrency(300000, currency)} (Premium)</span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {[
+                { label: "₹60k Tight", val: 60000 },
+                { label: "₹1.2L Moderate", val: 120000 },
+                { label: "₹1.6L Standard", val: 160000 },
+                { label: "₹2.2L Generous", val: 220000 },
+              ].map((b) => (
+                <button
+                  key={b.val}
+                  type="button"
+                  onClick={() => setUpfrontBudgetInr(b.val)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                    upfrontBudgetInr === b.val
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {b.label}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Monthly Living Budget */}
-          <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
-            <div className="flex justify-between items-start">
+          {/* Ongoing Monthly Living Budget */}
+          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div>
-                <label className="text-xs font-bold text-slate-800 block">
-                  Monthly Living Budget
-                </label>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Covers monthly house rent, society maintenance, and utilities.
-                </p>
+                <span className="text-xs font-bold text-slate-900 block">Monthly Living Budget Limit</span>
+                <span className="text-[11px] text-slate-500">Includes monthly rent, society maintenance, Wi-Fi & basic utilities</span>
               </div>
-              <span className="text-base font-extrabold text-emerald-600 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
-                {formatCurrency(monthlyBudgetInr, currency)}/mo
-              </span>
+              <div className="text-lg font-black text-slate-900 bg-white px-3 py-1 rounded-xl border border-slate-200 w-fit">
+                {formatCurrency(monthlyBudgetInr, currency)}<span className="text-xs font-normal text-slate-400">/mo</span>
+              </div>
             </div>
 
             <input
               type="range"
-              min={20000}
-              max={80000}
+              min={15000}
+              max={120000}
               step={2500}
               value={monthlyBudgetInr}
               onChange={(e) => setMonthlyBudgetInr(Number(e.target.value))}
-              className="w-full accent-emerald-600"
+              className="w-full accent-slate-800"
             />
             <div className="flex justify-between text-[10px] text-slate-400">
-              <span>{formatCurrency(20000, currency)}/mo</span>
-              <span>{formatCurrency(45000, currency)}/mo</span>
-              <span>{formatCurrency(80000, currency)}/mo</span>
+              <span>{formatCurrency(15000, currency)}</span>
+              <span>{formatCurrency(45000, currency)}</span>
+              <span>{formatCurrency(120000, currency)}</span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {[
+                { label: "₹25k/mo", val: 25000 },
+                { label: "₹35k/mo", val: 35000 },
+                { label: "₹45k/mo", val: 45000 },
+                { label: "₹65k/mo", val: 65000 },
+              ].map((b) => (
+                <button
+                  key={b.val}
+                  type="button"
+                  onClick={() => setMonthlyBudgetInr(b.val)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
+                    monthlyBudgetInr === b.val
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {b.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* STEP 4: Review your details */}
+      {/* STEP 4: Review Your Details */}
       {currentStep === 4 && (
         <div className="space-y-6 animate-fadeIn">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Step 4: Review your details</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Verify your relocation preferences before we create your moving plan.
+              Verify your relocation parameters before the multi-agent AI engine generates your plan.
             </p>
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-4 text-xs">
-            {/* Row 1: Route */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div>
-                <span className="text-slate-400 block text-[11px]">Route & Move Date</span>
-                <span className="text-sm font-bold text-slate-900">
-                  {origin} → {destination}
-                </span>
-                <span className="text-slate-500 block text-[11px] mt-0.5">{moveDate}</span>
+          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 bg-white rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">Moving Route</span>
+                <span className="font-bold text-slate-800 mt-0.5 block">{origin} → {destination}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(1)}
-                className="text-xs font-semibold text-blue-600 hover:underline"
-              >
-                Edit
-              </button>
+              <div className="p-3 bg-white rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">Move Date</span>
+                <span className="font-bold text-slate-800 mt-0.5 block">{moveDate}</span>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">Apartment & Pets</span>
+                <span className="font-bold text-slate-800 mt-0.5 block">{bhk} BHK • {hasPets ? "With Pet" : "No Pets"}</span>
+              </div>
+              <div className="p-3 bg-white rounded-xl border border-slate-100">
+                <span className="text-slate-400 block text-[10px]">Workplace & Commute</span>
+                <span className="font-bold text-slate-800 mt-0.5 block">{workplace} (≤{commuteMins}m)</span>
+              </div>
             </div>
 
-            {/* Row 2: Home Preferences */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+            <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row justify-between gap-2">
               <div>
-                <span className="text-slate-400 block text-[11px]">Home Preferences</span>
-                <span className="font-bold text-slate-900">
-                  {bhk} BHK Apartment • {hasPets ? "Pet Friendly" : "No Pets"}
-                </span>
-                <span className="text-slate-500 block text-[11px] mt-0.5">
-                  Near {workplace} (≤ {commuteMins} mins commute)
-                </span>
+                <span className="text-slate-500 text-[11px] block">Upfront Relocation Budget:</span>
+                <span className="font-bold text-blue-600 text-sm">{formatCurrency(upfrontBudgetInr, currency)}</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(2)}
-                className="text-xs font-semibold text-blue-600 hover:underline"
-              >
-                Edit
-              </button>
-            </div>
-
-            {/* Row 3: Budget Allocations */}
-            <div className="flex items-center justify-between">
               <div>
-                <span className="text-slate-400 block text-[11px]">Budget Caps ({currency})</span>
-                <span className="font-bold text-slate-900">
-                  Upfront Moving: {formatCurrency(upfrontBudgetInr, currency)}
-                </span>
-                <span className="text-emerald-700 block font-semibold text-[11px] mt-0.5">
-                  Monthly Living: {formatCurrency(monthlyBudgetInr, currency)}/mo
-                </span>
+                <span className="text-slate-500 text-[11px] block">Monthly Living Budget:</span>
+                <span className="font-bold text-slate-800 text-sm">{formatCurrency(monthlyBudgetInr, currency)}/mo</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setCurrentStep(3)}
-                className="text-xs font-semibold text-blue-600 hover:underline"
-              >
-                Edit
-              </button>
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200 text-xs text-blue-800 flex items-start space-x-2">
-            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-            <p>
-              When you click <strong>Create My Moving Plan</strong>, our assistants will search housing options, calculate truck freight tariffs, audit budgets, and organize your move date into a single timeline.
-            </p>
+          <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-900 text-xs flex items-center space-x-2.5">
+            <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <span>
+              Autonomous agents (Housing, Logistics, Budget, Schedule, Decision) will now coordinate verified properties, carrier freight, and milestone roadmaps.
+            </span>
           </div>
         </div>
       )}
 
-      {/* Navigation Buttons: Previous & Continue / Create Plan */}
+      {/* Navigation Buttons */}
       <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
         {currentStep > 1 ? (
           <button
             type="button"
             onClick={handleBack}
             disabled={loading}
-            className="px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold flex items-center space-x-1 transition disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center space-x-1.5 transition disabled:opacity-50"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Previous</span>
+            <span>Back</span>
           </button>
         ) : (
           <div />
@@ -642,7 +811,7 @@ export default function WizardForm({
           <button
             type="button"
             onClick={handleNext}
-            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition"
+            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 transition shadow-sm"
           >
             <span>Continue</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -652,17 +821,17 @@ export default function WizardForm({
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center space-x-2 shadow-md hover:shadow-lg transition disabled:opacity-50"
+            className="px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-2 transition shadow-md disabled:opacity-50"
           >
             {loading ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Creating Your Moving Plan...</span>
+                <span>Coordinating AI Agents...</span>
               </>
             ) : (
               <>
-                <span>Create My Moving Plan</span>
-                <ArrowRight className="w-4 h-4" />
+                <Sparkles className="w-4 h-4" />
+                <span>Generate My Moving Plan</span>
               </>
             )}
           </button>

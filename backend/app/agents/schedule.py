@@ -58,7 +58,7 @@ class ScheduleOptimizationAgent:
         milestones = [
             MilestoneItem(
                 step_id="M-01",
-                task_name="Lease Agreement Signing & Advance Payment",
+                task_name="Lease Agreement Signing & Security Deposit Payment",
                 target_date=(pickup_dt - timedelta(days=4)).strftime("%Y-%m-%d"),
                 prerequisites=[],
                 is_critical_path=True,
@@ -66,7 +66,7 @@ class ScheduleOptimizationAgent:
             ),
             MilestoneItem(
                 step_id="M-02",
-                task_name="Utility & Internet Transfer Initiation",
+                task_name="Broadband, Gas & Electricity Utility Transfer",
                 target_date=(pickup_dt - timedelta(days=2)).strftime("%Y-%m-%d"),
                 prerequisites=["M-01"],
                 is_critical_path=False,
@@ -74,19 +74,19 @@ class ScheduleOptimizationAgent:
             ),
             MilestoneItem(
                 step_id="M-03",
-                task_name="Packers & Movers Goods Loading & Dispatch",
+                task_name="Household Packing, Inventory Check & Truck Loading",
                 target_date=pickup_dt.strftime("%Y-%m-%d"),
                 prerequisites=["M-01"],
                 is_critical_path=True,
-                owner_party="Packers & Movers"
+                owner_party="User & Packers"
             ),
             MilestoneItem(
                 step_id="M-04",
-                task_name="Highway Interstate Transit Window",
+                task_name="Interstate Highway Transit Window",
                 target_date=f"{pickup_dt.strftime('%Y-%m-%d')} to {target_delivery.strftime('%Y-%m-%d')}",
                 prerequisites=["M-03"],
                 is_critical_path=True,
-                owner_party="Packers & Movers"
+                owner_party="Logistics Carrier"
             ),
             MilestoneItem(
                 step_id="M-05",
@@ -98,7 +98,7 @@ class ScheduleOptimizationAgent:
             ),
             MilestoneItem(
                 step_id="M-06",
-                task_name="Office Resumption / First Day at Workplace",
+                task_name="Unpacking, Settlement & First Day at Workplace",
                 target_date=(target_delivery + timedelta(days=2)).strftime("%Y-%m-%d"),
                 prerequisites=["M-05"],
                 is_critical_path=True,

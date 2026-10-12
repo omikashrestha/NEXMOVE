@@ -78,8 +78,8 @@ class LogisticsAgent:
             corridor_id = corridor.get("corridor_id", "IN-CORR")
         else:
             # Dynamically compute realistic tariff based on actual distance
-            pair = (origin.lower(), destination.lower())
-            distance_km = INDIAN_HIGHWAY_DISTANCES.get(pair, 1200)
+            from backend.app.core.places import calculate_intercity_distance_km
+            distance_km = calculate_intercity_distance_km(origin, destination)
             transit_days = max(2, math.ceil(distance_km / 420.0))
             
             if profile.home_bhk == 1:

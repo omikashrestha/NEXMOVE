@@ -23,16 +23,25 @@ import {
   MapPin, 
   Sliders, 
   HelpCircle,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Plus,
+  Filter,
+  ArrowUpDown
 } from "lucide-react";
 import { formatCurrency, getCurrencyFootnote } from "@/lib/currency";
 
 interface ResultsViewProps {
   project: any;
   loading: boolean;
+  activeTab?: "overview" | "budget" | "timeline" | "lease" | "replan";
+  onTabChange?: (tab: "overview" | "budget" | "timeline" | "lease" | "replan") => void;
   onReplan: (newUpfrontBudget: number) => Promise<void>;
   onDecision: (action: string) => Promise<void>;
+  onSelectProperty?: (propertyId: string) => Promise<void>;
+  onAddCustomProperty?: (data: any) => Promise<void>;
   onAnalyzeSampleDoc: (filename: string) => Promise<void>;
+  onUploadLeaseDocument?: (file: File) => Promise<void>;
   docAuditResult: any;
   docLoading: boolean;
   currency: string;
@@ -41,15 +50,29 @@ interface ResultsViewProps {
 export default function ResultsView({
   project,
   loading,
+  activeTab,
+  onTabChange,
   onReplan,
   onDecision,
+  onSelectProperty,
+  onAddCustomProperty,
   onAnalyzeSampleDoc,
+  onUploadLeaseDocument,
   docAuditResult,
   docLoading,
   currency
 }: ResultsViewProps) {
   // Navigation tabs with plain English labels
-  const [activeTab, setActiveTab] = useState<"overview" | "budget" | "timeline" | "lease" | "replan">("overview");
+  const [internalTab, setInternalTab] = useState<"overview" | "budget" | "timeline" | "lease" | "replan">("overview");
+  const currentTab = activeTab ?? internalTab;
+
+  const handleTabClick = (tab: "overview" | "budget" | "timeline" | "lease" | "replan") => {
+    if (onTabChange) {
+      onTabChange(tab);
+    } else {
+      setInternalTab(tab);
+    }
+  };
   
   // Replan Budget Slider
   const [replanBudgetInr, setReplanBudgetInr] = useState<number>(
@@ -65,7 +88,30 @@ export default function ResultsView({
   // Image fallback state
   const [propertyImgError, setPropertyImgError] = useState(false);
 
+  // Housing filter & sort state
+  const [filterBhk, setFilterBhk] = useState<number | "ALL">("ALL");
+  const [filterPetOnly, setFilterPetOnly] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<"RECOMMENDED" | "RENT_ASC" | "UPFRONT_ASC" | "COMMUTE_ASC">("RECOMMENDED");
+
+  // Manual property entry modal state
+  const [showManualPropertyModal, setShowManualPropertyModal] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualNeighborhood, setManualNeighborhood] = useState("");
+  const [manualBhk, setManualBhk] = useState(project.home_bhk || 2);
+  const [manualRent, setManualRent] = useState(30000);
+  const [manualDeposit, setManualDeposit] = useState(60000);
+  const [manualMaintenance, setManualMaintenance] = useState(2500);
+  const [manualCommute, setManualCommute] = useState(30);
+  const [manualPetFriendly, setManualPetFriendly] = useState(project.has_pets || false);
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+
+  // File upload state
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
   const housing = project.housing_proposal;
+  const availableOptions = project.available_housing_options || (housing ? [housing] : []);
+  const activePropertyId = project.selected_property_id || housing?.property_id;
+
   const logistics = project.logistics_estimate;
   const budget = project.budget_audit;
   const schedule = project.schedule_plan;
@@ -89,6 +135,54 @@ export default function ResultsView({
   const needsAttention = flaggedClauses.filter((c: any) => c.severity === "HIGH");
   const worthChecking = flaggedClauses.filter((c: any) => c.severity === "MEDIUM");
   const informational = flaggedClauses.filter((c: any) => c.severity === "LOW" || !c.severity);
+
+  // Filter & sort candidate options
+  let filteredOptions = availableOptions.filter((opt: any) => {
+    if (filterBhk !== "ALL" && opt.bhk !== filterBhk) return false;
+    if (filterPetOnly && !opt.pet_friendly) return false;
+    return true;
+  });
+
+  if (sortBy === "RENT_ASC") {
+    filteredOptions = [...filteredOptions].sort((a, b) => a.monthly_rent_inr - b.monthly_rent_inr);
+  } else if (sortBy === "UPFRONT_ASC") {
+    filteredOptions = [...filteredOptions].sort((a, b) => (a.total_upfront_outlay_inr || (a.security_deposit_inr + a.monthly_rent_inr)) - (b.total_upfront_outlay_inr || (b.security_deposit_inr + b.monthly_rent_inr)));
+  } else if (sortBy === "COMMUTE_ASC") {
+    filteredOptions = [...filteredOptions].sort((a, b) => (a.commute_to_workplace_mins || 999) - (b.commute_to_workplace_mins || 999));
+  }
+
+  const handleManualPropertySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onAddCustomProperty) return;
+    setManualSubmitting(true);
+    try {
+      await onAddCustomProperty({
+        title: manualTitle.trim() || `${manualBhk} BHK Apartment in ${manualNeighborhood || project.destination_city}`,
+        neighborhood: manualNeighborhood.trim() || "Central Area",
+        bhk: Number(manualBhk),
+        monthly_rent_inr: Number(manualRent),
+        security_deposit_inr: Number(manualDeposit),
+        society_maintenance_inr: Number(manualMaintenance),
+        move_in_fee_inr: 0,
+        commute_to_workplace_mins: Number(manualCommute),
+        pet_friendly: Boolean(manualPetFriendly),
+        property_type: "Manual Entry"
+      });
+      setShowManualPropertyModal(false);
+    } catch {
+      // handled by parent
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadLeaseDocument) {
+      setUploadedFileName(file.name);
+      onUploadLeaseDocument(file);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -155,17 +249,26 @@ export default function ResultsView({
 
       {/* Warning when destination has no listings */}
       {(!housing || project.status === "NO_HOUSING_AVAILABLE") && (
-        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-6 shadow-xs space-y-3">
+        <div className="bg-amber-50/90 border-2 border-amber-300 rounded-3xl p-6 shadow-xs space-y-4">
           <div className="flex items-start space-x-3">
             <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-base font-bold text-amber-950">No Listings in {project.destination_city}</h3>
-              <p className="text-xs text-amber-900 mt-1 leading-relaxed">
-                Our synthetic benchmark dataset currently does not have listings in <strong>{project.destination_city}</strong> matching your criteria ({project.home_bhk} BHK, {project.has_pets ? "pet friendly" : "no pets"}).
+            <div className="space-y-2">
+              <h3 className="text-base font-bold text-amber-950">No Verified Benchmark Listings in {project.destination_city}</h3>
+              <p className="text-xs text-amber-900 leading-relaxed">
+                Our pre-verified benchmark dataset does not currently index rental apartments in <strong>{project.destination_city}</strong> matching {project.home_bhk} BHK ({project.has_pets ? "pet friendly" : "standard"}).
               </p>
-              <p className="text-xs text-amber-900 mt-1.5 font-medium">
-                NEXMOVE preserves strict data integrity and does not silently substitute listings from another city. Please select one of our supported benchmark cities (<strong>Bengaluru</strong>, <strong>Kolkata</strong>, or <strong>Pune</strong>) or adjust your requirements.
+              <p className="text-xs text-amber-900 font-medium">
+                NEXMOVE guarantees complete data integrity: we will never substitute listings from another city. You can enter your property details manually or pick a supported benchmark city.
               </p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  onClick={() => setShowManualPropertyModal(true)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center space-x-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Enter Property Manually</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -225,20 +328,20 @@ export default function ResultsView({
       {/* 3. Navigation Tabs in Plain English */}
       <div className="flex border-b border-slate-200 space-x-2 sm:space-x-6 text-xs sm:text-sm font-semibold overflow-x-auto pb-px">
         <button
-          onClick={() => setActiveTab("overview")}
+          onClick={() => handleTabClick("overview")}
           className={`pb-3 whitespace-nowrap transition border-b-2 ${
-            activeTab === "overview"
+            currentTab === "overview"
               ? "text-blue-600 border-blue-600 font-bold"
               : "text-slate-500 hover:text-slate-800 border-transparent"
           }`}
         >
-          Your Recommended Home
+          Home Options & Moving
         </button>
 
         <button
-          onClick={() => setActiveTab("budget")}
+          onClick={() => handleTabClick("budget")}
           className={`pb-3 whitespace-nowrap transition border-b-2 ${
-            activeTab === "budget"
+            currentTab === "budget"
               ? "text-blue-600 border-blue-600 font-bold"
               : "text-slate-500 hover:text-slate-800 border-transparent"
           }`}
@@ -247,9 +350,9 @@ export default function ResultsView({
         </button>
 
         <button
-          onClick={() => setActiveTab("timeline")}
+          onClick={() => handleTabClick("timeline")}
           className={`pb-3 whitespace-nowrap transition border-b-2 ${
-            activeTab === "timeline"
+            currentTab === "timeline"
               ? "text-blue-600 border-blue-600 font-bold"
               : "text-slate-500 hover:text-slate-800 border-transparent"
           }`}
@@ -259,13 +362,13 @@ export default function ResultsView({
 
         <button
           onClick={() => {
-            setActiveTab("lease");
+            handleTabClick("lease");
             if (!docAuditResult && !docLoading) {
               onAnalyzeSampleDoc(selectedLeaseFile);
             }
           }}
           className={`pb-3 whitespace-nowrap transition border-b-2 ${
-            activeTab === "lease"
+            currentTab === "lease"
               ? "text-blue-600 border-blue-600 font-bold"
               : "text-slate-500 hover:text-slate-800 border-transparent"
           }`}
@@ -274,9 +377,9 @@ export default function ResultsView({
         </button>
 
         <button
-          onClick={() => setActiveTab("replan")}
+          onClick={() => handleTabClick("replan")}
           className={`pb-3 whitespace-nowrap transition border-b-2 ${
-            activeTab === "replan"
+            currentTab === "replan"
               ? "text-blue-600 border-blue-600 font-bold"
               : "text-slate-500 hover:text-slate-800 border-transparent"
           }`}
@@ -286,185 +389,375 @@ export default function ResultsView({
       </div>
 
       {/* ==================================================================== */}
-      {/* TAB 1: YOUR RECOMMENDED HOME */}
+      {/* TAB 1: HOME OPTIONS & RECOMMENDED HOME */}
       {/* ==================================================================== */}
-      {activeTab === "overview" && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Left Card: Property Photo & Details (7 cols) */}
-            <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider block">
-                    Recommended Home
-                  </span>
-                  <h3 className="text-xl font-bold text-slate-900 mt-0.5">
-                    {housing?.title || "Modern 2BHK Apartment"}
-                  </h3>
-                  <p className="text-xs text-slate-500 flex items-center mt-1">
-                    <MapPin className="w-3.5 h-3.5 mr-1 text-slate-400" />
-                    <span>{housing?.neighborhood}, {housing?.city}</span>
-                  </p>
-                </div>
-
-                <span className="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
-                  Example Property Data
-                </span>
-              </div>
-
-              {/* Apartment Photo with Clear Illustrative Label */}
-              <div className="relative rounded-2xl overflow-hidden aspect-[16/9] max-h-80 bg-slate-100">
-                {!propertyImgError ? (
-                  <img
-                    src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80"
-                    alt="Bright living room of recommended apartment"
-                    className="w-full h-full object-cover max-h-80"
-                    style={{ maxHeight: "320px", width: "100%", objectFit: "cover" }}
-                    onError={() => setPropertyImgError(true)}
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-6 text-slate-400">
-                    <Home className="w-10 h-10 mb-2 text-slate-300" />
-                    <span className="text-xs font-medium">Apartment Preview</span>
-                  </div>
-                )}
-                <div className="absolute bottom-2.5 left-2.5 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-medium px-2.5 py-1 rounded-md">
-                  Example property photo (illustrative)
-                </div>
-              </div>
-
-              {/* Key Highlights Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block">Monthly Rent</span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {formatCurrency(housing?.monthly_rent_inr, currency)}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block">Security Deposit</span>
-                  <span className="text-sm font-bold text-slate-900">
-                    {formatCurrency(housing?.security_deposit_inr, currency)}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block">Office Commute</span>
-                  <span className="text-sm font-bold text-emerald-600">
-                    {housing?.commute_to_workplace_mins || 25} mins
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-[11px] text-slate-400 block">Pet Suitable</span>
-                  <span className="text-sm font-bold text-slate-800">
-                    {housing?.pet_friendly ? "Yes (Permitted)" : "No"}
-                  </span>
-                </div>
-              </div>
-
-              {/* Property Description */}
-              <p className="text-xs text-slate-600 leading-relaxed pt-1">
-                {housing?.description || "Spacious, well-ventilated apartment located in a secure gated community with 24/7 power backup and designated parking."}
-              </p>
-            </div>
-
-            {/* Right Card: Moving Logistics & Why Recommended (5 cols) */}
-            <div className="lg:col-span-5 space-y-6">
+      {currentTab === "overview" && (
+        <div className="space-y-8">
+          
+          {/* Main Selected Home & Logistics Hero */}
+          {housing && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
-              {/* Estimated Moving Transport */}
-              <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+              {/* Left Card: Active Property Photo & Details (7 cols) */}
+              <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center">
-                    <Truck className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
-                    Estimated Moving Cost
-                  </span>
-                  <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
-                    Door-to-Door
+                  <div>
+                    <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider block">
+                      Active Selected Home
+                    </span>
+                    <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                      {housing?.title || "Modern 2BHK Apartment"}
+                    </h3>
+                    <p className="text-xs text-slate-500 flex items-center mt-1">
+                      <MapPin className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                      <span>{housing?.neighborhood}, {housing?.city}</span>
+                    </p>
+                  </div>
+
+                  <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full">
+                    Selected for Plan
                   </span>
                 </div>
 
-                <div>
-                  <h4 className="text-lg font-bold text-slate-900">
-                    {logistics?.vehicle_type || "Dedicated 14ft Moving Truck"}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {logistics?.route} ({logistics?.distance_km} km)
-                  </p>
+                {/* Apartment Photo with Clear Illustrative Label */}
+                <div className="relative rounded-2xl overflow-hidden aspect-[16/9] max-h-80 bg-slate-100">
+                  {!propertyImgError ? (
+                    <img
+                      src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1000&q=80"
+                      alt="Bright living room of recommended apartment"
+                      className="w-full h-full object-cover max-h-80"
+                      style={{ maxHeight: "320px", width: "100%", objectFit: "cover" }}
+                      onError={() => setPropertyImgError(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-6 text-slate-400">
+                      <Home className="w-10 h-10 mb-2 text-slate-300" />
+                      <span className="text-xs font-medium">Apartment Preview</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-2.5 left-2.5 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-medium px-2.5 py-1 rounded-md">
+                    Example property photo (illustrative)
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-50">
-                    <span className="text-[11px] text-slate-400 block">Total Moving Quote</span>
-                    <span className="font-bold text-slate-900 text-sm">
-                      {formatCurrency(logistics?.total_logistics_inr, currency)}
+                {/* Key Highlights Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[11px] text-slate-400 block">Monthly Rent</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {formatCurrency(housing?.monthly_rent_inr, currency)}
                     </span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50">
-                    <span className="text-[11px] text-slate-400 block">Transit Time</span>
-                    <span className="font-bold text-slate-900 text-sm">
-                      {logistics?.estimated_transit_days || 2} Days
+
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[11px] text-slate-400 block">Security Deposit</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      {formatCurrency(housing?.security_deposit_inr, currency)}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[11px] text-slate-400 block">Office Commute</span>
+                    <span className="text-sm font-bold text-emerald-600">
+                      {housing?.commute_to_workplace_mins || 25} mins
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <span className="text-[11px] text-slate-400 block">Pet Suitable</span>
+                    <span className="text-sm font-bold text-slate-800">
+                      {housing?.pet_friendly ? "Yes (Permitted)" : "No"}
                     </span>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 text-xs space-y-1.5 text-slate-600">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Scheduled packing & pickup:</span>
-                    <span className="font-semibold text-slate-800">{logistics?.recommended_pickup_date}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Estimated delivery:</span>
-                    <span className="font-semibold text-slate-800">{logistics?.estimated_delivery_date}</span>
-                  </div>
-                </div>
+                {/* Property Description */}
+                <p className="text-xs text-slate-600 leading-relaxed pt-1">
+                  {housing?.description || "Spacious, well-ventilated apartment located in a secure gated community with 24/7 power backup and designated parking."}
+                </p>
               </div>
 
-              {/* Why We Recommend This Plan */}
-              <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center">
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
-                  Why We Recommend This Plan
-                </h4>
-
-                {synthesized?.trade_offs_resolved && synthesized.trade_offs_resolved.length > 0 ? (
-                  <div className="space-y-2 text-xs text-slate-700">
-                    {synthesized.trade_offs_resolved.map((trade: string, i: number) => (
-                      <div key={i} className="p-3 bg-white rounded-xl border border-slate-200/70 leading-relaxed">
-                        {trade}
-                      </div>
-                    ))}
+              {/* Right Card: Moving Logistics & Why Recommended (5 cols) */}
+              <div className="lg:col-span-5 space-y-6">
+                
+                {/* Estimated Moving Transport */}
+                <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center">
+                      <Truck className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                      Estimated Moving Cost
+                    </span>
+                    <span className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                      Door-to-Door
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-600 leading-relaxed bg-white p-3 rounded-xl border border-slate-200/70">
-                    This home matches your preferred apartment size, respects family pet permissions, stays within your travel distance to the workplace, and fits cleanly inside your moving budget.
-                  </p>
-                )}
 
-                {synthesized?.user_advisories && synthesized.user_advisories.length > 0 && (
-                  <div className="pt-2 text-xs">
-                    <span className="font-semibold text-slate-700 block mb-1">Helpful Advice for Your Move:</span>
-                    <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
-                      {synthesized.user_advisories.map((adv: string, idx: number) => (
-                        <li key={idx}>{adv}</li>
+                  <div>
+                    <h4 className="text-lg font-bold text-slate-900">
+                      {logistics?.vehicle_type || "Dedicated 14ft Moving Truck"}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {logistics?.route} ({logistics?.distance_km} km)
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2 text-xs">
+                    <div className="p-2.5 rounded-xl bg-slate-50">
+                      <span className="text-[11px] text-slate-400 block">Total Moving Quote</span>
+                      <span className="font-bold text-slate-900 text-sm">
+                        {formatCurrency(logistics?.total_logistics_inr, currency)}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-slate-50">
+                      <span className="text-[11px] text-slate-400 block">Transit Time</span>
+                      <span className="font-bold text-slate-900 text-sm">
+                        {logistics?.estimated_transit_days || 2} Days
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 text-xs space-y-1.5 text-slate-600">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Scheduled packing & pickup:</span>
+                      <span className="font-semibold text-slate-800">{logistics?.recommended_pickup_date}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Estimated delivery:</span>
+                      <span className="font-semibold text-slate-800">{logistics?.estimated_delivery_date}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Why We Recommend This Plan */}
+                <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center">
+                    <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
+                    Why We Recommend This Plan
+                  </h4>
+
+                  {synthesized?.trade_offs_resolved && synthesized.trade_offs_resolved.length > 0 ? (
+                    <div className="space-y-2 text-xs text-slate-700">
+                      {synthesized.trade_offs_resolved.map((trade: string, i: number) => (
+                        <div key={i} className="p-3 bg-white rounded-xl border border-slate-200/70 leading-relaxed">
+                          {trade}
+                        </div>
                       ))}
-                    </ul>
-                  </div>
-                )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-600 leading-relaxed bg-white p-3 rounded-xl border border-slate-200/70">
+                      This home matches your preferred apartment size, respects family pet permissions, stays within your travel distance to the workplace, and fits cleanly inside your moving budget.
+                    </p>
+                  )}
+
+                  {synthesized?.user_advisories && synthesized.user_advisories.length > 0 && (
+                    <div className="pt-2 text-xs">
+                      <span className="font-semibold text-slate-700 block mb-1">Helpful Advice for Your Move:</span>
+                      <ul className="list-disc list-inside space-y-1 text-slate-600 text-[11px]">
+                        {synthesized.user_advisories.map((adv: string, idx: number) => (
+                          <li key={idx}>{adv}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
               </div>
 
             </div>
+          )}
 
+          {/* Multiple Housing Options Section */}
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Candidate Home Options in {project.destination_city}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Compare all matching properties. Selecting any option automatically updates your move budget, transit, and timeline.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowManualPropertyModal(true)}
+                className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition w-fit"
+              >
+                <Plus className="w-3.5 h-3.5 text-blue-600" />
+                <span>Enter Property Manually</span>
+              </button>
+            </div>
+
+            {/* Filter and Sort Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 pb-1 border-b border-slate-100 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-slate-500 font-semibold flex items-center">
+                  <Filter className="w-3.5 h-3.5 mr-1" />
+                  Filter:
+                </span>
+                
+                {/* BHK Filter */}
+                <div className="flex gap-1">
+                  {(["ALL", 1, 2, 3] as const).map((b) => (
+                    <button
+                      key={String(b)}
+                      type="button"
+                      onClick={() => setFilterBhk(b)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                        filterBhk === b
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      {b === "ALL" ? "All BHK" : `${b} BHK`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Pet Friendly Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setFilterPetOnly(!filterPetOnly)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                    filterPetOnly
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {filterPetOnly ? "✓ Pet Friendly Only" : "Pet Friendly"}
+                </button>
+              </div>
+
+              {/* Sort Dropdown */}
+              <div className="flex items-center space-x-1.5 text-slate-600">
+                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                <span className="font-semibold text-slate-500">Sort:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="RECOMMENDED">Top Recommended</option>
+                  <option value="RENT_ASC">Lowest Monthly Rent</option>
+                  <option value="UPFRONT_ASC">Lowest Upfront Outlay</option>
+                  <option value="COMMUTE_ASC">Shortest Office Commute</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Property Cards Grid */}
+            {filteredOptions.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                {filteredOptions.map((prop: any) => {
+                  const isSelected = prop.property_id === activePropertyId;
+                  const upfrontCost = prop.total_upfront_outlay_inr || (prop.security_deposit_inr + prop.monthly_rent_inr);
+                  const monthlyCost = prop.total_recurring_monthly_inr || (prop.monthly_rent_inr + (prop.society_maintenance_inr || 0));
+
+                  return (
+                    <div 
+                      key={prop.proposal_id || prop.property_id}
+                      className={`rounded-2xl p-5 border transition flex flex-col justify-between ${
+                        isSelected 
+                          ? "border-emerald-400 bg-emerald-50/20 shadow-xs ring-2 ring-emerald-400/40"
+                          : "border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs"
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              {prop.bhk} BHK • {prop.property_type || "Apartment"}
+                            </span>
+                            <h4 className="font-bold text-sm text-slate-900 mt-0.5 leading-snug">
+                              {prop.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 flex items-center mt-0.5">
+                              <MapPin className="w-3 h-3 mr-0.5 text-slate-400" />
+                              <span>{prop.neighborhood}, {prop.city}</span>
+                            </p>
+                          </div>
+
+                          {isSelected ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 flex-shrink-0">
+                              Selected
+                            </span>
+                          ) : prop.is_verified ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 flex-shrink-0">
+                              Verified
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Financial Metrics */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                          <div className="p-2.5 rounded-xl bg-slate-50">
+                            <span className="text-[10px] text-slate-400 block">Monthly Rent</span>
+                            <span className="font-bold text-slate-900">
+                              {formatCurrency(prop.monthly_rent_inr, currency)}
+                            </span>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-slate-50">
+                            <span className="text-[10px] text-slate-400 block">Upfront Outlay</span>
+                            <span className="font-bold text-slate-900">
+                              {formatCurrency(upfrontCost, currency)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Commute and Features */}
+                        <div className="text-[11px] text-slate-600 space-y-1 pt-1 border-t border-slate-100">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Deposit:</span>
+                            <span className="font-medium">{formatCurrency(prop.security_deposit_inr, currency)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Office Commute:</span>
+                            <span className="font-bold text-emerald-600">{prop.commute_to_workplace_mins || 25} mins</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Pet Policy:</span>
+                            <span className="font-medium">{prop.pet_friendly ? "Permitted" : "No Pets"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Select CTA */}
+                      <div className="pt-4 mt-2">
+                        {isSelected ? (
+                          <div className="w-full py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold text-center flex items-center justify-center space-x-1 shadow-2xs">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Currently Active in Plan</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onSelectProperty && onSelectProperty(prop.property_id)}
+                            disabled={loading}
+                            className="w-full py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-xl text-xs font-semibold text-center transition shadow-2xs disabled:opacity-50"
+                          >
+                            Select This Home
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                <Home className="w-8 h-8 mx-auto text-slate-400" />
+                <p className="text-xs font-semibold text-slate-700">No properties match your active filter.</p>
+                <p className="text-[11px] text-slate-400">Try changing your BHK or Pet filter, or enter details manually.</p>
+              </div>
+            )}
           </div>
+
         </div>
       )}
 
       {/* ==================================================================== */}
       {/* TAB 2: BUDGET & COSTS */}
       {/* ==================================================================== */}
-      {activeTab === "budget" && budget && (
+      {currentTab === "budget" && budget && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-8">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Budget & Costs</h3>
@@ -647,7 +940,7 @@ export default function ResultsView({
       {/* ==================================================================== */}
       {/* TAB 3: MOVING TIMELINE */}
       {/* ==================================================================== */}
-      {activeTab === "timeline" && schedule && (
+      {currentTab === "timeline" && schedule && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
@@ -663,7 +956,6 @@ export default function ResultsView({
 
           <div className="space-y-3 pt-2">
             {schedule.critical_path_milestones?.map((m: any, idx: number) => {
-              // Plain English status logic
               const isNeedsAttention = m.is_critical_path;
               const statusLabel = isNeedsAttention ? "Suggested Critical Task" : "Suggested Task";
 
@@ -712,7 +1004,7 @@ export default function ResultsView({
       {/* ==================================================================== */}
       {/* TAB 4: LEASE REVIEW */}
       {/* ==================================================================== */}
-      {activeTab === "lease" && (
+      {currentTab === "lease" && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
           <div>
             <h3 className="text-xl font-bold text-slate-900">Lease Review</h3>
@@ -732,11 +1024,13 @@ export default function ResultsView({
             </div>
           </div>
 
-          {/* Sample Lease Agreement Selector */}
-          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="w-full sm:w-auto">
-              <label className="block font-bold text-slate-800 mb-1">
-                Select an Example Agreement to Review
+          {/* Document Input Options: Sample Selector OR File Upload */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Box A: Sample Agreement Picker */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
+              <label className="block font-bold text-slate-800">
+                Option A: Review an Example Agreement
               </label>
               <select
                 value={selectedLeaseFile}
@@ -744,31 +1038,59 @@ export default function ResultsView({
                   setSelectedLeaseFile(e.target.value);
                   onAnalyzeSampleDoc(e.target.value);
                 }}
-                className="w-full sm:w-96 px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="lease_standard_inr.txt">Example 1: Standard 2BHK Agreement (HSR Layout)</option>
-                <option value="lease_redflag_inr.txt">Example 2: Agreement with Strict Clauses (Indiranagar)</option>
+                <option value="lease_standard_inr.txt">Example 1: Standard Bengaluru 2BHK Lease (HSR Layout)</option>
+                <option value="lease_redflag_inr.txt">Example 2: Strict Agreement with Penalty Clauses (Indiranagar)</option>
                 <option value="lease_ambiguous_inr.txt">Example 3: Draft Agreement (Missing Rent / Deposit Terms)</option>
               </select>
+
+              <button
+                onClick={() => onAnalyzeSampleDoc(selectedLeaseFile)}
+                disabled={docLoading}
+                className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50"
+              >
+                {docLoading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Analyzing clauses...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Check Selected Agreement</span>
+                  </>
+                )}
+              </button>
             </div>
 
-            <button
-              onClick={() => onAnalyzeSampleDoc(selectedLeaseFile)}
-              disabled={docLoading}
-              className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition disabled:opacity-50"
-            >
-              {docLoading ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Checking Clauses...</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Check This Agreement</span>
-                </>
+            {/* Box B: File Upload Input */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
+              <label className="block font-bold text-slate-800">
+                Option B: Upload Your Own Agreement
+              </label>
+              <div className="relative border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-xl p-4 text-center cursor-pointer transition bg-white">
+                <input
+                  type="file"
+                  accept=".txt,.pdf"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+                <Upload className="w-5 h-5 mx-auto text-slate-400 mb-1" />
+                <span className="block font-semibold text-slate-700">
+                  {uploadedFileName ? uploadedFileName : "Click or drag text/PDF agreement here"}
+                </span>
+                <span className="block text-[10px] text-slate-400 mt-0.5">Supports .txt and .pdf files</span>
+              </div>
+
+              {uploadedFileName && (
+                <div className="text-[11px] text-emerald-700 font-medium flex items-center space-x-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>File loaded: {uploadedFileName}</span>
+                </div>
               )}
-            </button>
+            </div>
+
           </div>
 
           {/* Audit Results Grouped by Plain Categories */}
@@ -868,35 +1190,28 @@ export default function ResultsView({
 
                   <div className="space-y-3">
                     {worthChecking.map((clause: any, idx: number) => (
-                      <div key={idx} className="p-5 rounded-2xl border border-amber-200 bg-amber-50/30 text-xs space-y-2">
+                      <div key={idx} className="p-4 rounded-xl border border-amber-200 bg-amber-50/30 text-xs space-y-2">
                         <div className="flex items-center justify-between">
-                          <h5 className="font-bold text-slate-900 text-sm">{clause.clause_title}</h5>
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                            Worth checking
+                          <h5 className="font-bold text-slate-900">{clause.clause_title}</h5>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
+                            Check Details
                           </span>
                         </div>
-                        <p className="text-slate-600 italic bg-white p-3 rounded-xl border border-slate-200 text-[11px]">
+                        <p className="text-slate-600 italic bg-white p-2.5 rounded-lg border border-slate-200 text-[11px]">
                           "{clause.clause_text || clause.raw_text}"
                         </p>
-                        <div className="text-slate-700 space-y-1 pt-1">
-                          <div><strong>Why it matters:</strong> {clause.issue_rationale || clause.advisory_note}</div>
-                          {clause.suggested_action && (
-                            <div className="text-blue-800 font-medium">
-                              <strong>Question to ask landlord:</strong> {clause.suggested_action}
-                            </div>
-                          )}
-                        </div>
+                        <p className="text-slate-700">{clause.issue_rationale}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Group 3: Informational */}
+              {/* Group 3: Informational Notes */}
               {informational.length > 0 && (
                 <div className="space-y-3">
-                  <div className="flex items-center space-x-2 text-slate-700">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <div className="flex items-center space-x-2 text-slate-600">
+                    <ShieldCheck className="w-4 h-4 text-slate-400" />
                     <h4 className="font-bold text-sm">Informational Notes ({informational.length})</h4>
                   </div>
 
@@ -929,7 +1244,7 @@ export default function ResultsView({
       {/* ==================================================================== */}
       {/* TAB 5: WHAT IF MY BUDGET CHANGES? */}
       {/* ==================================================================== */}
-      {activeTab === "replan" && (
+      {currentTab === "replan" && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
           <div>
             <h3 className="text-xl font-bold text-slate-900">What If My Budget Changes?</h3>
@@ -968,6 +1283,7 @@ export default function ResultsView({
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {[
+                  { label: "₹45,000 (Low Budget Recheck)", val: 45000 },
                   { label: "₹60,000 (Tight Budget)", val: 60000 },
                   { label: "₹1,15,000 (Reduced)", val: 115000 },
                   { label: "₹1,20,000 (Moderate)", val: 120000 },
@@ -1012,6 +1328,147 @@ export default function ResultsView({
           <p className="text-xs text-slate-500 leading-relaxed max-w-xl">
             If your new budget is too low for the current apartment and movers, NEXMOVE will either suggest alternative homes or invite you to make a choice between budget and commute.
           </p>
+        </div>
+      )}
+
+      {/* Manual Property Entry Modal */}
+      {showManualPropertyModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-200 my-8 animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-5">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Enter Property Details Manually</h3>
+                <p className="text-xs text-slate-500">Add a specific apartment in {project.destination_city}</p>
+              </div>
+              <button
+                onClick={() => setShowManualPropertyModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleManualPropertySubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Property Name / Title</label>
+                <input
+                  type="text"
+                  required
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder={`e.g. ${manualBhk} BHK Apartment in ${project.destination_city}`}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Neighborhood / Locality</label>
+                  <input
+                    type="text"
+                    required
+                    value={manualNeighborhood}
+                    onChange={(e) => setManualNeighborhood(e.target.value)}
+                    placeholder="e.g. Central City, IT Corridor"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">BHK (Bedrooms)</label>
+                  <select
+                    value={manualBhk}
+                    onChange={(e) => setManualBhk(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value={1}>1 BHK</option>
+                    <option value={2}>2 BHK</option>
+                    <option value={3}>3 BHK</option>
+                    <option value={4}>4 BHK</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Monthly Rent (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min={1000}
+                    step={500}
+                    value={manualRent}
+                    onChange={(e) => setManualRent(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Security Deposit (₹)</label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step={1000}
+                    value={manualDeposit}
+                    onChange={(e) => setManualDeposit(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Society Maintenance (₹/mo)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={manualMaintenance}
+                    onChange={(e) => setManualMaintenance(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Commute to Office (Mins)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    max={120}
+                    value={manualCommute}
+                    onChange={(e) => setManualCommute(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-center space-x-2 text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={manualPetFriendly}
+                    onChange={(e) => setManualPetFriendly(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                  />
+                  <span className="font-semibold">Pet friendly apartment society</span>
+                </label>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowManualPropertyModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={manualSubmitting}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-xs disabled:opacity-50"
+                >
+                  {manualSubmitting ? "Saving Property..." : "Add & Update Plan"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

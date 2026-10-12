@@ -37,9 +37,9 @@ class DocumentIntelligenceAgent:
 
         # 1. Financial Extractions via pattern matching
         # Rent match: Look specifically for rent clause or first prominent rupee figure
-        rent_match = re.search(r"(?:rent\s*of|base\s*rent\s*of|monthly\s*rent.*?)\s*₹\s*([0-9]{2,3},[0-9]{3}|[0-9]{4,6})", text, re.IGNORECASE)
+        rent_match = re.search(r"(?:rent\s*(?:of|is|shall be)?|base\s*rent\s*(?:of|is)?|monthly\s*rent.*?)\s*(?:₹|Rs\.?|INR)?\s*([0-9]{2,3},[0-9]{3}|[0-9]{4,6})", text, re.IGNORECASE)
         if not rent_match:
-            rent_match = re.search(r"₹\s*([0-9]{2,3},[0-9]{3}|[0-9]{4,6})", text)
+            rent_match = re.search(r"(?:₹|Rs\.?|INR)\s*([0-9]{2,3},[0-9]{3}|[0-9]{4,6})", text, re.IGNORECASE)
         
         extracted_rent = None
         if rent_match:
@@ -48,7 +48,7 @@ class DocumentIntelligenceAgent:
             except ValueError:
                 pass
 
-        deposit_match = re.search(r"security\s*deposit.*?₹\s*([0-9]{2,3},[0-9]{3}|[0-9]{4,6})", text, re.IGNORECASE)
+        deposit_match = re.search(r"(?:security\s*deposit|deposit\s*amount).*?(?:₹|Rs\.?|INR)?\s*([0-9]{2,3},[0-9]{3}|[0-9]{4,6})", text, re.IGNORECASE)
         extracted_deposit = None
         if deposit_match:
             try:
@@ -56,7 +56,7 @@ class DocumentIntelligenceAgent:
             except ValueError:
                 pass
 
-        maint_match = re.search(r"(?:society\s*maintenance|maintenance\s*charge).*?₹\s*([0-9]{1,3},[0-9]{3}|[0-9]{3,5})", text, re.IGNORECASE)
+        maint_match = re.search(r"(?:society\s*maintenance|maintenance\s*charge).*?(?:₹|Rs\.?|INR)?\s*([0-9]{1,3},[0-9]{3}|[0-9]{3,5})", text, re.IGNORECASE)
         extracted_maint = None
         if maint_match:
             try:

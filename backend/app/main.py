@@ -6,12 +6,27 @@ from backend.app.db.session import engine, Base
 from backend.app.api.projects import router as projects_router
 from backend.app.api.documents import router as documents_router
 from backend.app.api.webhooks import router as webhooks_router
+from backend.app.api.places import router as places_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize SQLite database tables automatically
     Base.metadata.create_all(bind=engine)
+    # Check and add columns if table was created previously without them
+    try:
+        with engine.connect() as conn:
+            from sqlalchemy import text
+            cols = [row[1] for row in conn.execute(text("PRAGMA table_info(relocation_projects);")).fetchall()]
+            if "target_workplace" not in cols:
+                conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN target_workplace VARCHAR(200) DEFAULT 'City Center';"))
+            if "max_commute_mins" not in cols:
+                conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN max_commute_mins INTEGER DEFAULT 45;"))
+            if "selected_property_id" not in cols:
+                conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN selected_property_id VARCHAR(50);"))
+            conn.commit()
+    except Exception:
+        pass
     yield
 
 
@@ -35,6 +50,7 @@ app.add_middleware(
 app.include_router(projects_router)
 app.include_router(documents_router)
 app.include_router(webhooks_router)
+app.include_router(places_router)
 
 
 @app.get("/", tags=["Health"])

@@ -19,6 +19,7 @@ def housing_node(data: AgentGraphState) -> AgentGraphState:
     agent = HousingResearchAgent()
     proposal = agent.search(state.profile, state.active_revision_request)
     state.housing_proposal = proposal
+    state.available_housing_options = agent.search_all(state.profile, state.active_revision_request)
     if proposal:
         state.history.append(AgentMessage(
             sender="HousingResearchAgent",

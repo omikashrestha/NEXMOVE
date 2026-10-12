@@ -21,6 +21,7 @@ class RelocationProfile(BaseModel):
     has_pets: bool = Field(False, description="Presence of household pets")
     target_workplace: str = Field("Manyata Tech Park", description="Workplace locality for commute tracking")
     max_commute_mins: int = Field(45, ge=5, le=120, description="Soft preference for maximum commute")
+    selected_property_id: Optional[str] = Field(None, description="Explicit property ID selected by user")
 
 
 class AgentMessage(BaseModel):
@@ -38,6 +39,7 @@ class RelocationState(BaseModel):
     
     # Domain Agent Proposals
     housing_proposal: Optional[HousingProposal] = None
+    available_housing_options: List[HousingProposal] = Field(default_factory=list, description="All matching candidate listings")
     logistics_estimate: Optional[LogisticsEstimate] = None
     budget_audit: Optional[BudgetAudit] = None
     document_audit: Optional[DocumentAudit] = None

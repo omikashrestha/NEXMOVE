@@ -12,10 +12,10 @@ import {
   Sparkles, 
   PlusCircle, 
   CheckCircle2, 
-  Home,
-  HelpCircle,
-  ExternalLink,
-  ChevronDown
+  Home, 
+  HelpCircle, 
+  ExternalLink, 
+  ChevronDown 
 } from "lucide-react";
 import { getCurrencyFootnote } from "@/lib/currency";
 
@@ -28,6 +28,9 @@ export default function HomeDashboard() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [currency, setCurrency] = useState("INR");
   
+  // Tab state inside ResultsView controlled by Navbar and tab buttons
+  const [resultsTab, setResultsTab] = useState<"overview" | "budget" | "timeline" | "lease" | "replan">("overview");
+
   // Toggle wizard modal when a plan is already active
   const [showWizardModal, setShowWizardModal] = useState(false);
 
@@ -54,11 +57,28 @@ export default function HomeDashboard() {
   };
 
   const handleNavigateSection = (sectionId: string) => {
-    if (sectionId === "top" || sectionId === "overview") {
+    if (sectionId === "top") {
       topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (sectionId === "overview") {
+      if (project) {
+        setResultsTab("overview");
+        resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     } else if (sectionId === "how-it-works") {
       explainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else if (["home-options", "budget-costs", "moving-timeline", "lease-review"].includes(sectionId)) {
+    } else if (sectionId === "home-options") {
+      setResultsTab("overview");
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (sectionId === "budget-costs") {
+      setResultsTab("budget");
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (sectionId === "moving-timeline") {
+      setResultsTab("timeline");
+      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (sectionId === "lease-review") {
+      setResultsTab("lease");
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
@@ -68,6 +88,7 @@ export default function HomeDashboard() {
     setProject(projectData);
     setShowWizardModal(false);
     setErrorMsg(null);
+    setResultsTab("overview");
     setTimeout(() => {
       resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 150);
@@ -123,7 +144,55 @@ export default function HomeDashboard() {
     }
   };
 
-  // 4. Document Sample Lease Audit Handler
+  // 4. Select Candidate Property
+  const handleSelectProperty = async (propertyId: string) => {
+    if (!project) return;
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${project.project_id}/select-property`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ property_id: propertyId }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Failed to select this property.");
+      }
+      const updated = await res.json();
+      setProject(updated);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to select property.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 5. Add Custom Property (Manual Entry)
+  const handleAddCustomProperty = async (data: any) => {
+    if (!project) return;
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/projects/${project.project_id}/custom-property`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Failed to save custom property.");
+      }
+      const updated = await res.json();
+      setProject(updated);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to save property.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 6. Document Sample Lease Audit Handler
   const handleAnalyzeSampleDoc = async (sampleFilename: string) => {
     setDocLoading(true);
     setErrorMsg(null);
@@ -140,6 +209,33 @@ export default function HomeDashboard() {
       setDocAuditResult(data.audit);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to analyze document.");
+    } finally {
+      setDocLoading(false);
+    }
+  };
+
+  // 7. Document File Upload Audit Handler
+  const handleUploadLeaseDocument = async (file: File) => {
+    setDocLoading(true);
+    setErrorMsg(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (project?.project_id) {
+        formData.append("project_id", project.project_id);
+      }
+      const res = await fetch(`${API_BASE}/api/documents/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Unable to upload and analyze document.");
+      }
+      const data = await res.json();
+      setDocAuditResult(data.audit);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to upload document.");
     } finally {
       setDocLoading(false);
     }
@@ -257,9 +353,14 @@ export default function HomeDashboard() {
             <ResultsView 
               project={project}
               loading={loading}
+              activeTab={resultsTab}
+              onTabChange={setResultsTab}
               onReplan={handleReplan}
               onDecision={handleDecision}
+              onSelectProperty={handleSelectProperty}
+              onAddCustomProperty={handleAddCustomProperty}
               onAnalyzeSampleDoc={handleAnalyzeSampleDoc}
+              onUploadLeaseDocument={handleUploadLeaseDocument}
               docAuditResult={docAuditResult}
               docLoading={docLoading}
               currency={currency}

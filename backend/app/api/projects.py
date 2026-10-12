@@ -57,6 +57,23 @@ class UserDecisionRequest(BaseModel):
     notes: Optional[str] = Field(None, description="Optional user commentary")
 
 
+class SelectPropertyRequest(BaseModel):
+    property_id: str = Field(..., description="ID of property to select from available options")
+
+
+class CustomPropertyRequest(BaseModel):
+    title: str = Field(..., description="Display title for the rental property")
+    neighborhood: str = Field(..., description="Locality / neighborhood name")
+    bhk: int = Field(2, ge=1, le=5)
+    monthly_rent_inr: float = Field(..., gt=0)
+    security_deposit_inr: float = Field(..., ge=0)
+    society_maintenance_inr: float = Field(0.0, ge=0)
+    move_in_fee_inr: float = Field(0.0, ge=0)
+    pet_friendly: bool = Field(False)
+    commute_to_workplace_mins: int = Field(30, ge=0)
+    property_type: str = Field("Apartment")
+
+
 class ProjectSummaryResponse(BaseModel):
     project_id: str
     user_email: str
@@ -70,10 +87,12 @@ class ProjectSummaryResponse(BaseModel):
     has_pets: bool
     status: str
     created_at: str
+    selected_property_id: Optional[str] = None
 
 
 class ProjectDetailResponse(ProjectSummaryResponse):
     housing_proposal: Optional[HousingProposal] = None
+    available_housing_options: List[HousingProposal] = Field(default_factory=list)
     logistics_estimate: Optional[LogisticsEstimate] = None
     budget_audit: Optional[BudgetAudit] = None
     document_audit: Optional[DocumentAudit] = None
@@ -187,7 +206,8 @@ def _build_profile_from_project(project: RelocationProject) -> RelocationProfile
         home_bhk=project.home_bhk,
         has_pets=project.has_pets,
         target_workplace=getattr(project, "target_workplace", "City Center") or "City Center",
-        max_commute_mins=int(getattr(project, "max_commute_mins", 45) or 45)
+        max_commute_mins=int(getattr(project, "max_commute_mins", 45) or 45),
+        selected_property_id=getattr(project, "selected_property_id", None)
     )
 
 
@@ -319,7 +339,9 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         has_pets=project.has_pets,
         status=final_state.status,
         created_at=project.created_at.isoformat(),
+        selected_property_id=getattr(project, "selected_property_id", None),
         housing_proposal=final_state.housing_proposal,
+        available_housing_options=final_state.available_housing_options,
         logistics_estimate=final_state.logistics_estimate,
         budget_audit=final_state.budget_audit,
         document_audit=final_state.document_audit,
@@ -431,10 +453,93 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
             return run_project_planning(project_id, db)
         else:
             project.status = "APPROVED"
-            db.commit()
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported decision action '{req.decision_action}'.")
 
     return get_project(project_id, db)
 
+
+@router.post("/{project_id}/select-property", response_model=ProjectDetailResponse)
+def select_project_property(project_id: str, req: SelectPropertyRequest, db: Session = Depends(get_db)):
+    """Sets a chosen property from available options and updates the relocation plan."""
+    project = db.query(RelocationProject).filter_by(id=project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
+
+    project.selected_property_id = req.property_id
+    project.status = "DRAFT"
+    db.commit()
+
+    return run_project_planning(project_id, db)
+
+
+@router.post("/{project_id}/custom-property", response_model=ProjectDetailResponse)
+def add_custom_property(project_id: str, req: CustomPropertyRequest, db: Session = Depends(get_db)):
+    """Allows manual property entry for any city, updating the complete relocation plan."""
+    project = db.query(RelocationProject).filter_by(id=project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
+
+    custom_id = f"MANUAL-{uuid.uuid4().hex[:6].upper()}"
+    from backend.app.agents.housing import HousingResearchAgent
+    HousingResearchAgent.register_custom_listing({
+        "property_id": custom_id,
+        "title": req.title,
+        "city": project.destination_city,
+        "neighborhood": req.neighborhood,
+        "bhk": req.bhk,
+        "monthly_rent_inr": req.monthly_rent_inr,
+        "security_deposit_inr": req.security_deposit_inr,
+        "society_maintenance_inr": req.society_maintenance_inr,
+        "move_in_fee_inr": req.move_in_fee_inr,
+        "pet_friendly": req.pet_friendly,
+        "commute_to_workplace_mins": req.commute_to_workplace_mins,
+        "safety_score_index": 8.5,
+        "datasource": "USER_MANUAL_ENTRY",
+        "property_type": req.property_type,
+        "is_verified": True
+    })
+    custom_prop = HousingProposal(
+        property_id=custom_id,
+        title=req.title,
+        city=project.destination_city,
+        neighborhood=req.neighborhood,
+        bhk=req.bhk,
+        monthly_rent_inr=req.monthly_rent_inr,
+        security_deposit_inr=req.security_deposit_inr,
+        society_maintenance_inr=req.society_maintenance_inr,
+        move_in_fee_inr=req.move_in_fee_inr,
+        pet_friendly=req.pet_friendly,
+        commute_to_workplace_mins=req.commute_to_workplace_mins,
+        safety_score_index=8.5,
+        datasource="USER_MANUAL_ENTRY",
+        property_type=req.property_type,
+        is_verified=True,
+        total_upfront_outlay_inr=round(req.security_deposit_inr + req.monthly_rent_inr + req.move_in_fee_inr, 2),
+        total_recurring_monthly_inr=round(req.monthly_rent_inr + req.society_maintenance_inr, 2)
+    )
+
+    project.selected_property_id = custom_id
+    project.status = "DRAFT"
+    db.commit()
+
+    profile = _build_profile_from_project(project)
+    init_state = RelocationState(project_id=project.id, profile=profile)
+    init_state.housing_proposal = custom_prop
+    init_state.available_housing_options = [custom_prop]
+
+    from backend.app.agents.logistics import LogisticsAgent
+    from backend.app.agents.budget import BudgetAnalystAgent
+    from backend.app.agents.document import DocumentIntelligenceAgent
+    from backend.app.agents.schedule import ScheduleOptimizationAgent
+    from backend.app.agents.decision import DecisionSynthesisAgent
+
+    logistics = LogisticsAgent().estimate(profile)
+    init_state.logistics_estimate = logistics
+    init_state.budget_audit = BudgetAnalystAgent().audit(profile, custom_prop, logistics)
+    init_state.document_audit = DocumentIntelligenceAgent().analyze_document(raw_text_content=None)
+    init_state.schedule_plan = ScheduleOptimizationAgent().build_schedule(profile, logistics, custom_prop, init_state.document_audit)
+    final_state = DecisionSynthesisAgent().evaluate_and_arbitrate(init_state)
+
+    _persist_workflow_artifacts(project, final_state, db)
     return get_project(project_id, db)
