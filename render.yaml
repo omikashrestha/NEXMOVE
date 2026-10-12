@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: nexmove-backend
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PYTHONPATH
+        value: .
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:3000,http://127.0.0.1:3000
+      - key: ALLOWED_ORIGIN_REGEX
+        value: ^https://nexmove(-[a-z0-9-]+)?\.vercel\.app$

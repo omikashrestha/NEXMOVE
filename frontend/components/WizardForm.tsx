@@ -286,7 +286,7 @@ export default function WizardForm({
       const fullProject = await runRes.json();
       onSuccess(fullProject);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to reach the planning server. Please verify backend is running on :8000.");
+      setErrorMessage(err.message || "Failed to reach the planning server. Please verify the backend API service is online.");
     } finally {
       setLoading(false);
     }
