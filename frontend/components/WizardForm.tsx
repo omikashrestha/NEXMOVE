@@ -295,14 +295,14 @@ export default function WizardForm({
   const quickCities = ["Bengaluru", "Kolkata", "Pune", "Mumbai", "Hyderabad", "Bhopal", "Delhi"];
 
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm max-w-3xl mx-auto">
+    <div className="bg-white dark:bg-[#182321] rounded-3xl p-6 sm:p-8 border border-[#E4E8E3] dark:border-[#354540] shadow-card max-w-3xl mx-auto transition-colors duration-200">
       
       {/* 4-Step Progress Indicator */}
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-100 -translate-y-1/2 z-0" />
+          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-[#E4E8E3] dark:bg-[#354540] -translate-y-1/2 z-0" />
           <div 
-            className="absolute top-1/2 left-0 h-0.5 bg-blue-600 -translate-y-1/2 z-0 transition-all duration-300"
+            className="absolute top-1/2 left-0 h-0.5 bg-[#0F766E] dark:bg-[#2DD4BF] -translate-y-1/2 z-0 transition-all duration-300"
             style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
           />
 
@@ -321,16 +321,16 @@ export default function WizardForm({
                 <div 
                   className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition shadow-xs ${
                     isCompleted
-                      ? "bg-blue-600 text-white"
+                      ? "bg-[#0F766E] dark:bg-[#2DD4BF] text-white dark:text-[#101918]"
                       : isCurrent
-                      ? "bg-white text-blue-600 border-2 border-blue-600 ring-4 ring-blue-50"
-                      : "bg-white text-slate-400 border border-slate-200"
+                      ? "bg-white dark:bg-[#182321] text-[#0F766E] dark:text-[#2DD4BF] border-2 border-[#0F766E] dark:border-[#2DD4BF] ring-4 ring-[#E8F3F0] dark:ring-[#203D37]"
+                      : "bg-white dark:bg-[#202D2A] text-[#526461] dark:text-[#B6C6C1] border border-[#E4E8E3] dark:border-[#354540]"
                   }`}
                 >
                   {isCompleted ? <Check className="w-4 h-4" /> : step.number}
                 </div>
                 <span className={`text-[11px] font-semibold mt-2 hidden sm:block ${
-                  isCurrent ? "text-slate-900" : isCompleted ? "text-slate-600" : "text-slate-400"
+                  isCurrent ? "text-[#18312F] dark:text-[#F3F7F4]" : isCompleted ? "text-[#526461] dark:text-[#B6C6C1]" : "text-[#526461]/60 dark:text-[#B6C6C1]/50"
                 }`}>
                   {step.short}
                 </span>
@@ -342,8 +342,8 @@ export default function WizardForm({
 
       {/* Error alert if validation failed */}
       {errorMessage && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center space-x-2 animate-fadeIn">
-          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+        <div className="mb-6 p-4 rounded-xl bg-[#FDF2F1] dark:bg-[#7F1D1D]/20 border border-[#F9D1CE] dark:border-[#B42318]/40 text-[#B42318] dark:text-[#FCA5A5] text-xs flex items-center space-x-2 animate-fadeIn" role="alert">
+          <AlertCircle className="w-4 h-4 text-[#B42318] dark:text-[#FCA5A5] flex-shrink-0" aria-hidden="true" />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -352,8 +352,8 @@ export default function WizardForm({
       {currentStep === 1 && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Step 1: Where are you moving?</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-xl font-bold text-[#18312F] dark:text-[#F3F7F4]">Step 1: Where are you moving?</h3>
+            <p className="text-xs text-[#526461] dark:text-[#B6C6C1] mt-1">
               Search any Indian departure city and destination. Freeform text is supported for all locations.
             </p>
           </div>
@@ -362,11 +362,11 @@ export default function WizardForm({
             
             {/* Origin City with Searchable Autocomplete */}
             <div className="relative">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-[#18312F] dark:text-[#F3F7F4] mb-1.5">
                 Current City (Departure)
               </label>
               <div className="relative">
-                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <MapPin className="w-4 h-4 text-[#526461] dark:text-[#B6C6C1] absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
                   type="text"
                   value={origin}
@@ -377,13 +377,13 @@ export default function WizardForm({
                   onFocus={() => setShowOriginMenu(true)}
                   onBlur={() => setTimeout(() => setShowOriginMenu(false), 200)}
                   placeholder="e.g. Pune, Bhopal, Patna, Jaipur..."
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] text-[#18312F] dark:text-[#F3F7F4] placeholder:text-[#526461]/60 dark:placeholder:text-[#B6C6C1]/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] dark:focus:ring-[#2DD4BF] focus:border-transparent bg-white dark:bg-[#202D2A] shadow-2xs"
                 />
               </div>
 
               {/* Origin Autocomplete Menu */}
               {showOriginMenu && originSuggestions.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#182321] border border-[#E4E8E3] dark:border-[#354540] rounded-xl shadow-card max-h-48 overflow-y-auto">
                   {originSuggestions.map((item, idx) => {
                     const cName = getCityName(item);
                     const sName = getCityState(item);
@@ -396,10 +396,10 @@ export default function WizardForm({
                           setOrigin(cName);
                           setShowOriginMenu(false);
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
+                        className="w-full text-left px-3.5 py-2 hover:bg-[#E8F3F0]/60 dark:hover:bg-[#202D2A] flex items-center justify-between text-xs border-b border-[#E4E8E3]/40 dark:border-[#354540]/40 last:border-0"
                       >
-                        <span className="font-semibold text-slate-800">{cName}</span>
-                        {sName && <span className="text-[10px] text-slate-400">{sName}</span>}
+                        <span className="font-semibold text-[#18312F] dark:text-[#F3F7F4]">{cName}</span>
+                        {sName && <span className="text-[10px] text-[#526461] dark:text-[#B6C6C1]">{sName}</span>}
                       </button>
                     );
                   })}
@@ -414,24 +414,24 @@ export default function WizardForm({
                     onClick={() => setOrigin(c)}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
                       (origin || "").toLowerCase() === c.toLowerCase()
-                        ? "bg-slate-800 text-white border-slate-800"
-                        : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
+                        ? "bg-[#0F766E] dark:bg-[#2DD4BF] text-white dark:text-[#101918] border-[#0F766E] dark:border-[#2DD4BF]"
+                        : "bg-[#FAF8F3] dark:bg-[#202D2A] text-[#526461] dark:text-[#B6C6C1] border-[#E4E8E3] dark:border-[#354540] hover:border-[#CDE7E2] dark:hover:border-[#5EEAD4]/40 hover:text-[#18312F] dark:hover:text-[#F3F7F4]"
                     }`}
                   >
                     {c}
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Where your household items are located</p>
+              <p className="text-[11px] text-[#526461] dark:text-[#B6C6C1] mt-1">Where your household items are located</p>
             </div>
 
             {/* Destination City with Searchable Autocomplete */}
             <div className="relative">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-[#18312F] dark:text-[#F3F7F4] mb-1.5">
                 Destination City (Arrival)
               </label>
               <div className="relative">
-                <MapPin className="w-4 h-4 text-blue-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                <MapPin className="w-4 h-4 text-[#0F766E] dark:text-[#2DD4BF] absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
                   type="text"
                   value={destination}
@@ -442,13 +442,13 @@ export default function WizardForm({
                   onFocus={() => setShowDestMenu(true)}
                   onBlur={() => setTimeout(() => setShowDestMenu(false), 200)}
                   placeholder="e.g. Bengaluru, Kolkata, Mumbai..."
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] text-[#18312F] dark:text-[#F3F7F4] placeholder:text-[#526461]/60 dark:placeholder:text-[#B6C6C1]/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] dark:focus:ring-[#2DD4BF] focus:border-transparent bg-white dark:bg-[#202D2A] shadow-2xs"
                 />
               </div>
 
               {/* Destination Autocomplete Menu */}
               {showDestMenu && destSuggestions.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#182321] border border-[#E4E8E3] dark:border-[#354540] rounded-xl shadow-card max-h-48 overflow-y-auto">
                   {destSuggestions.map((item, idx) => {
                     const cName = getCityName(item);
                     const sName = getCityState(item);
@@ -478,10 +478,10 @@ export default function WizardForm({
                           else if (lower === "kochi") setWorkplace("Infopark Phase 1 & 2");
                           else setWorkplace(`${cName} Central`);
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center justify-between text-xs border-b border-slate-50 last:border-0"
+                        className="w-full text-left px-3.5 py-2 hover:bg-[#E8F3F0]/60 dark:hover:bg-[#202D2A] flex items-center justify-between text-xs border-b border-[#E4E8E3]/40 dark:border-[#354540]/40 last:border-0"
                       >
-                        <span className="font-semibold text-slate-800">{cName}</span>
-                        {sName && <span className="text-[10px] text-slate-400">{sName}</span>}
+                        <span className="font-semibold text-[#18312F] dark:text-[#F3F7F4]">{cName}</span>
+                        {sName && <span className="text-[10px] text-[#526461] dark:text-[#B6C6C1]">{sName}</span>}
                       </button>
                     );
                   })}
@@ -506,32 +506,32 @@ export default function WizardForm({
                     }}
                     className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
                       (destination || "").toLowerCase() === c.toLowerCase()
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
+                        ? "bg-[#0F766E] dark:bg-[#2DD4BF] text-white dark:text-[#101918] border-[#0F766E] dark:border-[#2DD4BF]"
+                        : "bg-[#FAF8F3] dark:bg-[#202D2A] text-[#526461] dark:text-[#B6C6C1] border-[#E4E8E3] dark:border-[#354540] hover:border-[#CDE7E2] dark:hover:border-[#5EEAD4]/40 hover:text-[#18312F] dark:hover:text-[#F3F7F4]"
                     }`}
                   >
                     {c}
                   </button>
                 ))}
               </div>
-              <p className="text-[11px] text-slate-400 mt-1">Supports any Indian city (autocomplete or manual entry)</p>
+              <p className="text-[11px] text-[#526461] dark:text-[#B6C6C1] mt-1">Supports any Indian city (autocomplete or manual entry)</p>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-[#18312F] dark:text-[#F3F7F4] mb-1.5">
               Planned Moving Date
             </label>
             <div className="relative max-w-sm">
-              <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Calendar className="w-4 h-4 text-[#526461] dark:text-[#B6C6C1] absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
               <input
                 type="date"
                 value={moveDate}
                 onChange={(e) => setMoveDate(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] text-[#18312F] dark:text-[#F3F7F4] text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] dark:focus:ring-[#2DD4BF] focus:border-transparent bg-white dark:bg-[#202D2A] shadow-2xs"
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-1">Target delivery and move-in timeline</p>
+            <p className="text-[11px] text-[#526461] dark:text-[#B6C6C1] mt-1">Target delivery and move-in timeline</p>
           </div>
         </div>
       )}
@@ -540,15 +540,15 @@ export default function WizardForm({
       {currentStep === 2 && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Step 2: What home do you need?</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-xl font-bold text-[#18312F] dark:text-[#F3F7F4]">Step 2: What home do you need?</h3>
+            <p className="text-xs text-[#526461] dark:text-[#B6C6C1] mt-1">
               Select apartment size, family pet requirements, and workplace commute location in {destination}.
             </p>
           </div>
 
           {/* Home Size (BHK) */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-2">
+            <label className="block text-xs font-semibold text-[#18312F] dark:text-[#F3F7F4] mb-2">
               Apartment Size (Bedrooms)
             </label>
             <div className="grid grid-cols-4 gap-3">
@@ -559,12 +559,12 @@ export default function WizardForm({
                   onClick={() => setBhk(num)}
                   className={`py-3 rounded-xl border text-center transition ${
                     bhk === num
-                      ? "border-blue-600 bg-blue-50 text-blue-700 font-bold shadow-xs"
-                      : "border-slate-200 hover:border-slate-300 text-slate-700"
+                      ? "border-[#0F766E] dark:border-[#2DD4BF] bg-[#E8F3F0] dark:bg-[#203D37] text-[#115E59] dark:text-[#5EEAD4] font-bold shadow-xs"
+                      : "border-[#E4E8E3] dark:border-[#354540] hover:border-[#CDE7E2] dark:hover:border-[#5EEAD4]/40 text-[#526461] dark:text-[#B6C6C1] hover:text-[#18312F] dark:hover:text-[#F3F7F4] bg-white dark:bg-[#202D2A]"
                   }`}
                 >
                   <span className="block text-base font-extrabold">{num} BHK</span>
-                  <span className="text-[10px] text-slate-500 block">
+                  <span className="text-[10px] text-[#526461] dark:text-[#B6C6C1] block">
                     {num === 1 ? "Studio / 1-Bed" : num === 2 ? "2 Bedrooms" : num === 3 ? "3 Bedrooms" : "4+ Bedrooms"}
                   </span>
                 </button>
@@ -575,49 +575,49 @@ export default function WizardForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             {/* Household Occupants */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-[#18312F] dark:text-[#F3F7F4] mb-1.5">
                 Household Members
               </label>
               <div className="relative">
-                <Users className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Users className="w-4 h-4 text-[#526461] dark:text-[#B6C6C1] absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <select
                   value={householdOccupants}
                   onChange={(e) => setHouseholdOccupants(Number(e.target.value))}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] text-sm bg-white dark:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4] focus:outline-none focus:ring-2 focus:ring-[#0F766E] dark:focus:ring-[#2DD4BF] shadow-2xs"
                 >
-                  <option value={1}>1 person (Solo)</option>
-                  <option value={2}>2 people (Couple / Roommates)</option>
-                  <option value={3}>3 people (Small family)</option>
-                  <option value={4}>4+ people (Family)</option>
+                  <option value={1} className="bg-white dark:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4]">1 person (Solo)</option>
+                  <option value={2} className="bg-white dark:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4]">2 people (Couple / Roommates)</option>
+                  <option value={3} className="bg-white dark:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4]">3 people (Small family)</option>
+                  <option value={4} className="bg-white dark:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4]">4+ people (Family)</option>
                 </select>
               </div>
             </div>
 
             {/* Traveling with Pet */}
             <div className="flex flex-col justify-end">
-              <label className="flex items-center space-x-3 p-3 rounded-xl border border-slate-200 bg-slate-50/60 cursor-pointer hover:bg-slate-50 transition">
+              <label className="flex items-center space-x-3 p-3 rounded-xl border border-[#E4E8E3] dark:border-[#354540] bg-[#FAF8F3] dark:bg-[#202D2A] cursor-pointer hover:bg-[#E8F3F0]/40 dark:hover:bg-[#203D37]/40 transition">
                 <input
                   type="checkbox"
                   checked={hasPets}
                   onChange={(e) => setHasPets(e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                  className="w-4 h-4 rounded text-[#0F766E] dark:text-[#2DD4BF] focus:ring-[#0F766E] dark:focus:ring-[#2DD4BF] border-[#E4E8E3] dark:border-[#354540] dark:bg-[#182321]"
                 />
                 <div>
-                  <span className="text-xs font-bold text-slate-800 block">Traveling with a Pet</span>
-                  <span className="text-[11px] text-slate-500 block">Filters only pet-friendly housing societies</span>
+                  <span className="text-xs font-bold text-[#18312F] dark:text-[#F3F7F4] block">Traveling with a Pet</span>
+                  <span className="text-[11px] text-[#526461] dark:text-[#B6C6C1] block">Filters only pet-friendly housing societies</span>
                 </div>
               </label>
             </div>
           </div>
 
           {/* Workplace & Commute with Autocomplete suggestions */}
-          <div className="pt-2 border-t border-slate-100 space-y-4">
+          <div className="pt-2 border-t border-[#E4E8E3] dark:border-[#354540] space-y-4">
             <div className="relative">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label className="block text-xs font-semibold text-[#18312F] dark:text-[#F3F7F4] mb-1.5">
                 Workplace or Preferred Hub in {destination || "Destination"}
               </label>
               <div className="relative">
-                <Briefcase className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Briefcase className="w-4 h-4 text-[#526461] dark:text-[#B6C6C1] absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
                 <input
                   type="text"
                   value={workplace}
@@ -628,13 +628,13 @@ export default function WizardForm({
                   onFocus={() => setShowWorkplaceMenu(true)}
                   onBlur={() => setTimeout(() => setShowWorkplaceMenu(false), 200)}
                   placeholder="e.g. Manyata Tech Park, Whitefield, BKC, Salt Lake Sector V"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] text-[#18312F] dark:text-[#F3F7F4] placeholder:text-[#526461]/60 dark:placeholder:text-[#B6C6C1]/40 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E] dark:focus:ring-[#2DD4BF] focus:border-transparent bg-white dark:bg-[#202D2A] shadow-2xs"
                 />
               </div>
 
               {/* Workplace Suggestions Dropdown */}
               {showWorkplaceMenu && workplaceSuggestions.length > 0 && (
-                <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                <div className="absolute z-30 left-0 right-0 mt-1 bg-white dark:bg-[#182321] border border-[#E4E8E3] dark:border-[#354540] rounded-xl shadow-card max-h-48 overflow-y-auto">
                   {workplaceSuggestions.map((wp, idx) => {
                     const wName = getWorkplaceName(wp);
                     const wArea = getWorkplaceArea(wp);
@@ -647,12 +647,12 @@ export default function WizardForm({
                           setWorkplace(wName);
                           setShowWorkplaceMenu(false);
                         }}
-                        className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center space-x-2 text-xs border-b border-slate-50 last:border-0"
+                        className="w-full text-left px-3.5 py-2 hover:bg-[#E8F3F0]/60 dark:hover:bg-[#202D2A] flex items-center space-x-2 text-xs border-b border-[#E4E8E3]/40 dark:border-[#354540]/40 last:border-0"
                       >
-                        <Briefcase className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                        <Briefcase className="w-3.5 h-3.5 text-[#0F766E] dark:text-[#2DD4BF] flex-shrink-0" aria-hidden="true" />
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-800">{wName}</span>
-                          {wArea && <span className="text-[10px] text-slate-400">{wArea}</span>}
+                          <span className="font-semibold text-[#18312F] dark:text-[#F3F7F4]">{wName}</span>
+                          {wArea && <span className="text-[10px] text-[#526461] dark:text-[#B6C6C1]">{wArea}</span>}
                         </div>
                       </button>
                     );
@@ -674,8 +674,8 @@ export default function WizardForm({
                         onClick={() => setWorkplace(wName)}
                         className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition ${
                           isSelected
-                            ? "bg-blue-600 text-white border-blue-600"
-                            : "bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300"
+                            ? "bg-[#0F766E] dark:bg-[#2DD4BF] text-white dark:text-[#101918] border-[#0F766E] dark:border-[#2DD4BF]"
+                            : "bg-[#FAF8F3] dark:bg-[#202D2A] text-[#526461] dark:text-[#B6C6C1] border-[#E4E8E3] dark:border-[#354540] hover:border-[#CDE7E2] dark:hover:border-[#5EEAD4]/40 hover:text-[#18312F] dark:hover:text-[#F3F7F4]"
                         }`}
                       >
                         {wName}
@@ -684,13 +684,13 @@ export default function WizardForm({
                   })}
                 </div>
               )}
-              <p className="text-[11px] text-slate-400 mt-1">We calculate transit times from housing options to this office hub</p>
+              <p className="text-[11px] text-[#526461] dark:text-[#B6C6C1] mt-1">We calculate transit times from housing options to this office hub</p>
             </div>
 
             <div>
               <div className="flex justify-between items-center text-xs mb-1">
-                <span className="font-semibold text-slate-700">Maximum Desired Commute</span>
-                <span className="font-bold text-blue-600">{commuteMins} minutes</span>
+                <span className="font-semibold text-[#18312F] dark:text-[#F3F7F4]">Maximum Desired Commute</span>
+                <span className="font-bold text-[#0F766E] dark:text-[#5EEAD4]">{commuteMins} minutes</span>
               </div>
               <input
                 type="range"
@@ -699,9 +699,10 @@ export default function WizardForm({
                 step={5}
                 value={commuteMins}
                 onChange={(e) => setCommuteMins(Number(e.target.value))}
-                className="w-full accent-blue-600"
+                className="w-full accent-[#0F766E] dark:accent-[#2DD4BF]"
+                aria-label="Maximum desired commute in minutes"
               />
-              <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <div className="flex justify-between text-[10px] text-[#526461] dark:text-[#B6C6C1] mt-0.5">
                 <span>15 mins (Walk/Short drive)</span>
                 <span>45 mins (Balanced)</span>
                 <span>90 mins (Wide radius)</span>
@@ -715,20 +716,20 @@ export default function WizardForm({
       {currentStep === 3 && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Step 3: What is your budget?</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-xl font-bold text-[#18312F] dark:text-[#F3F7F4]">Step 3: What is your budget?</h3>
+            <p className="text-xs text-[#526461] dark:text-[#B6C6C1] mt-1">
               Separate your one-time relocation budget from your ongoing monthly living budget.
             </p>
           </div>
 
           {/* Upfront Relocation Budget */}
-          <div className="p-5 rounded-2xl bg-blue-50/50 border border-blue-200/80 space-y-4">
+          <div className="p-5 rounded-2xl bg-[#E8F3F0]/60 dark:bg-[#202D2A] border border-[#CDE7E2] dark:border-[#354540] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div>
-                <span className="text-xs font-bold text-blue-900 block">Upfront Moving Budget</span>
-                <span className="text-[11px] text-blue-700/80">Covers movers, transit insurance, security deposit & advance rent</span>
+                <span className="text-xs font-bold text-[#115E59] dark:text-[#5EEAD4] block">Upfront Moving Budget</span>
+                <span className="text-[11px] text-[#526461] dark:text-[#B6C6C1]">Covers movers, transit insurance, security deposit & advance rent</span>
               </div>
-              <div className="text-lg font-black text-blue-900 bg-white px-3 py-1 rounded-xl border border-blue-200 w-fit">
+              <div className="text-lg font-black text-[#0F766E] dark:text-[#5EEAD4] bg-white dark:bg-[#182321] px-3 py-1 rounded-xl border border-[#CDE7E2] dark:border-[#354540] w-fit shadow-2xs">
                 {formatCurrency(upfrontBudgetInr, currency)}
               </div>
             </div>
@@ -740,9 +741,10 @@ export default function WizardForm({
               step={5000}
               value={upfrontBudgetInr}
               onChange={(e) => setUpfrontBudgetInr(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              className="w-full accent-[#0F766E] dark:accent-[#2DD4BF]"
+              aria-label="Upfront moving budget"
             />
-            <div className="flex justify-between text-[10px] text-blue-600/70">
+            <div className="flex justify-between text-[10px] text-[#526461] dark:text-[#B6C6C1]">
               <span>{formatCurrency(40000, currency)} (Budget)</span>
               <span>{formatCurrency(160000, currency)} (Recommended)</span>
               <span>{formatCurrency(300000, currency)} (Premium)</span>
@@ -761,8 +763,8 @@ export default function WizardForm({
                   onClick={() => setUpfrontBudgetInr(b.val)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                     upfrontBudgetInr === b.val
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                      ? "bg-[#0F766E] dark:bg-[#2DD4BF] text-white dark:text-[#101918] border-[#0F766E] dark:border-[#2DD4BF]"
+                      : "bg-white dark:bg-[#182321] text-[#526461] dark:text-[#B6C6C1] border-[#E4E8E3] dark:border-[#354540] hover:border-[#CDE7E2] dark:hover:border-[#5EEAD4]/40 hover:text-[#18312F] dark:hover:text-[#F3F7F4]"
                   }`}
                 >
                   {b.label}
@@ -772,14 +774,14 @@ export default function WizardForm({
           </div>
 
           {/* Ongoing Monthly Living Budget */}
-          <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+          <div className="p-5 rounded-2xl bg-[#FAF8F3] dark:bg-[#202D2A] border border-[#E4E8E3] dark:border-[#354540] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <div>
-                <span className="text-xs font-bold text-slate-900 block">Monthly Living Budget Limit</span>
-                <span className="text-[11px] text-slate-500">Includes monthly rent, society maintenance, Wi-Fi & basic utilities</span>
+                <span className="text-xs font-bold text-[#18312F] dark:text-[#F3F7F4] block">Monthly Living Budget Limit</span>
+                <span className="text-[11px] text-[#526461] dark:text-[#B6C6C1]">Includes monthly rent, society maintenance, Wi-Fi & basic utilities</span>
               </div>
-              <div className="text-lg font-black text-slate-900 bg-white px-3 py-1 rounded-xl border border-slate-200 w-fit">
-                {formatCurrency(monthlyBudgetInr, currency)}<span className="text-xs font-normal text-slate-400">/mo</span>
+              <div className="text-lg font-black text-[#18312F] dark:text-[#F3F7F4] bg-white dark:bg-[#182321] px-3 py-1 rounded-xl border border-[#E4E8E3] dark:border-[#354540] w-fit shadow-2xs">
+                {formatCurrency(monthlyBudgetInr, currency)}<span className="text-xs font-normal text-[#526461] dark:text-[#B6C6C1]">/mo</span>
               </div>
             </div>
 
@@ -790,9 +792,10 @@ export default function WizardForm({
               step={2500}
               value={monthlyBudgetInr}
               onChange={(e) => setMonthlyBudgetInr(Number(e.target.value))}
-              className="w-full accent-slate-800"
+              className="w-full accent-[#115E59] dark:accent-[#2DD4BF]"
+              aria-label="Monthly living budget limit"
             />
-            <div className="flex justify-between text-[10px] text-slate-400">
+            <div className="flex justify-between text-[10px] text-[#526461] dark:text-[#B6C6C1]">
               <span>{formatCurrency(15000, currency)}</span>
               <span>{formatCurrency(45000, currency)}</span>
               <span>{formatCurrency(120000, currency)}</span>
@@ -811,8 +814,8 @@ export default function WizardForm({
                   onClick={() => setMonthlyBudgetInr(b.val)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition ${
                     monthlyBudgetInr === b.val
-                      ? "bg-slate-800 text-white border-slate-800"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                      ? "bg-[#115E59] dark:bg-[#2DD4BF] text-white dark:text-[#101918] border-[#115E59] dark:border-[#2DD4BF]"
+                      : "bg-white dark:bg-[#182321] text-[#526461] dark:text-[#B6C6C1] border-[#E4E8E3] dark:border-[#354540] hover:border-[#CDE7E2] dark:hover:border-[#5EEAD4]/40 hover:text-[#18312F] dark:hover:text-[#F3F7F4]"
                   }`}
                 >
                   {b.label}
@@ -827,46 +830,46 @@ export default function WizardForm({
       {currentStep === 4 && (
         <div className="space-y-6 animate-fadeIn">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">Step 4: Review your details</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-xl font-bold text-[#18312F] dark:text-[#F3F7F4]">Step 4: Review your details</h3>
+            <p className="text-xs text-[#526461] dark:text-[#B6C6C1] mt-1">
               Verify your relocation parameters before the multi-agent AI engine generates your plan.
             </p>
           </div>
 
-          <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 space-y-4 text-xs">
+          <div className="bg-[#FAF8F3] dark:bg-[#202D2A] rounded-2xl p-5 border border-[#E4E8E3] dark:border-[#354540] space-y-4 text-xs">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-white rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Moving Route</span>
-                <span className="font-bold text-slate-800 mt-0.5 block">{origin} → {destination}</span>
+              <div className="p-3 bg-white dark:bg-[#182321] rounded-xl border border-[#E4E8E3] dark:border-[#354540] shadow-2xs">
+                <span className="text-[#526461] dark:text-[#B6C6C1] block text-[10px]">Moving Route</span>
+                <span className="font-bold text-[#18312F] dark:text-[#F3F7F4] mt-0.5 block">{origin} → {destination}</span>
               </div>
-              <div className="p-3 bg-white rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Move Date</span>
-                <span className="font-bold text-slate-800 mt-0.5 block">{moveDate}</span>
+              <div className="p-3 bg-white dark:bg-[#182321] rounded-xl border border-[#E4E8E3] dark:border-[#354540] shadow-2xs">
+                <span className="text-[#526461] dark:text-[#B6C6C1] block text-[10px]">Move Date</span>
+                <span className="font-bold text-[#18312F] dark:text-[#F3F7F4] mt-0.5 block">{moveDate}</span>
               </div>
-              <div className="p-3 bg-white rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Apartment & Pets</span>
-                <span className="font-bold text-slate-800 mt-0.5 block">{bhk} BHK • {hasPets ? "With Pet" : "No Pets"}</span>
+              <div className="p-3 bg-white dark:bg-[#182321] rounded-xl border border-[#E4E8E3] dark:border-[#354540] shadow-2xs">
+                <span className="text-[#526461] dark:text-[#B6C6C1] block text-[10px]">Apartment & Pets</span>
+                <span className="font-bold text-[#18312F] dark:text-[#F3F7F4] mt-0.5 block">{bhk} BHK • {hasPets ? "With Pet" : "No Pets"}</span>
               </div>
-              <div className="p-3 bg-white rounded-xl border border-slate-100">
-                <span className="text-slate-400 block text-[10px]">Workplace & Commute</span>
-                <span className="font-bold text-slate-800 mt-0.5 block">{workplace} (≤{commuteMins}m)</span>
+              <div className="p-3 bg-white dark:bg-[#182321] rounded-xl border border-[#E4E8E3] dark:border-[#354540] shadow-2xs">
+                <span className="text-[#526461] dark:text-[#B6C6C1] block text-[10px]">Workplace & Commute</span>
+                <span className="font-bold text-[#18312F] dark:text-[#F3F7F4] mt-0.5 block">{workplace} (≤{commuteMins}m)</span>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row justify-between gap-2">
+            <div className="pt-2 border-t border-[#E4E8E3] dark:border-[#354540] flex flex-col sm:flex-row justify-between gap-2">
               <div>
-                <span className="text-slate-500 text-[11px] block">Upfront Relocation Budget:</span>
-                <span className="font-bold text-blue-600 text-sm">{formatCurrency(upfrontBudgetInr, currency)}</span>
+                <span className="text-[#526461] dark:text-[#B6C6C1] text-[11px] block">Upfront Relocation Budget:</span>
+                <span className="font-bold text-[#0F766E] dark:text-[#5EEAD4] text-sm">{formatCurrency(upfrontBudgetInr, currency)}</span>
               </div>
               <div>
-                <span className="text-slate-500 text-[11px] block">Monthly Living Budget:</span>
-                <span className="font-bold text-slate-800 text-sm">{formatCurrency(monthlyBudgetInr, currency)}/mo</span>
+                <span className="text-[#526461] dark:text-[#B6C6C1] text-[11px] block">Monthly Living Budget:</span>
+                <span className="font-bold text-[#18312F] dark:text-[#F3F7F4] text-sm">{formatCurrency(monthlyBudgetInr, currency)}/mo</span>
               </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-blue-900 text-xs flex items-center space-x-2.5">
-            <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0" />
+          <div className="p-4 rounded-xl bg-[#E8F3F0] dark:bg-[#203D37]/40 border border-[#CDE7E2] dark:border-[#354540] text-[#115E59] dark:text-[#5EEAD4] text-xs flex items-center space-x-2.5">
+            <Sparkles className="w-4 h-4 text-[#0F766E] dark:text-[#2DD4BF] flex-shrink-0" aria-hidden="true" />
             <span>
               Autonomous agents (Housing, Logistics, Budget, Schedule, Decision) will now coordinate verified properties, carrier freight, and milestone roadmaps.
             </span>
@@ -875,15 +878,15 @@ export default function WizardForm({
       )}
 
       {/* Navigation Buttons */}
-      <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
+      <div className="mt-8 pt-4 border-t border-[#E4E8E3] dark:border-[#354540] flex items-center justify-between">
         {currentStep > 1 ? (
           <button
             type="button"
             onClick={handleBack}
             disabled={loading}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center space-x-1.5 transition disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] hover:bg-[#FAF8F3] dark:hover:bg-[#202D2A] text-xs font-semibold text-[#526461] dark:text-[#B6C6C1] hover:text-[#18312F] dark:hover:text-[#F3F7F4] flex items-center space-x-1.5 transition disabled:opacity-50"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
+            <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Back</span>
           </button>
         ) : (
@@ -894,26 +897,26 @@ export default function WizardForm({
           <button
             type="button"
             onClick={handleNext}
-            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-1.5 transition shadow-sm"
+            className="px-6 py-2.5 rounded-xl bg-[#0F766E] hover:bg-[#115E59] text-white text-xs font-bold flex items-center space-x-1.5 transition shadow-xs"
           >
             <span>Continue</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         ) : (
           <button
             type="button"
             onClick={handleSubmit}
             disabled={loading}
-            className="px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center space-x-2 transition shadow-md disabled:opacity-50"
+            className="px-7 py-3 rounded-xl bg-[#0F766E] hover:bg-[#115E59] text-white text-xs font-bold flex items-center space-x-2 transition shadow-card disabled:opacity-50"
           >
             {loading ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
                 <span>Coordinating AI Agents...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-4 h-4" aria-hidden="true" />
                 <span>Generate My Moving Plan</span>
               </>
             )}

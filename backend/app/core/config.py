@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -7,3 +8,24 @@ DATA_DIR = BASE_DIR / "data" / "sample_benchmarks"
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR}/nexmove.db")
 DEFAULT_CURRENCY = "INR"
 DEFAULT_CURRENCY_SYMBOL = "₹"
+
+
+def get_allowed_origins() -> List[str]:
+    """Resolves CORS origins from ALLOWED_ORIGINS/CORS_ORIGINS or safe development defaults."""
+    raw = os.getenv("ALLOWED_ORIGINS") or os.getenv("CORS_ORIGINS")
+    default_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5678",
+        "http://127.0.0.1:5678",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://testserver",
+    ]
+    if raw:
+        origins = [o.strip() for o in raw.split(",") if o.strip()]
+        return origins if origins else default_origins
+    return default_origins
+
+
+ALLOWED_ORIGINS: List[str] = get_allowed_origins()

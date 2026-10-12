@@ -9,7 +9,7 @@ import {
   Truck, 
   FileText,
   CheckCircle2,
-  Calendar
+  ShieldCheck
 } from "lucide-react";
 
 interface HeroSectionProps {
@@ -21,115 +21,116 @@ export default function HeroSection({ onStartClick, onExploreClick }: HeroSectio
   const [imageError, setImageError] = useState(false);
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/40 via-white to-slate-50 border-b border-slate-200/60 py-8 md:py-12">
+    <section className="relative overflow-hidden bg-[#FAF8F3] dark:bg-[#101918] border-b border-[#E4E8E3] dark:border-[#354540] py-10 md:py-16 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           
           {/* Left Column: Hero Copy & CTA (7 cols) */}
-          <div className="lg:col-span-7 space-y-4 text-center lg:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200/60">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span>Smart Relocation Assistant</span>
+          <div className="lg:col-span-7 space-y-5 text-center lg:text-left">
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-[#E8F3F0] dark:bg-[#203D37] text-[#115E59] dark:text-[#5EEAD4] text-xs font-semibold border border-[#CCE3D7] dark:border-[#354540]">
+              <Sparkles className="w-3.5 h-3.5 text-[#0F766E] dark:text-[#5EEAD4]" aria-hidden="true" />
+              <span>Multi-Agent Relocation Intelligence</span>
             </div>
 
-            <div className="space-y-2">
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-slate-900 leading-tight">
-                Your next move, made simple.
+            <div className="space-y-3">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-[#18312F] dark:text-[#F3F7F4] leading-tight">
+                Your next move, <span className="text-[#0F766E] dark:text-[#5EEAD4]">made simple.</span>
               </h1>
-              <p className="text-base sm:text-lg text-slate-600 max-w-2xl font-normal leading-relaxed">
-                Find a suitable home, plan your moving costs, and organize your relocation in one place with help from AI.
+              <p className="text-base sm:text-lg text-[#526461] dark:text-[#B6C6C1] max-w-2xl font-normal leading-relaxed">
+                Find verified homes, calculate moving costs, and organize your relocation timeline in minutes with coordinated AI agents.
               </p>
             </div>
 
             {/* Supporting Line */}
-            <p className="text-xs sm:text-sm text-slate-500 max-w-xl">
-              NEXMOVE brings housing, budgeting, moving logistics, and lease review together in one seamless plan.
+            <p className="text-xs sm:text-sm text-[#526461] dark:text-[#B6C6C1] max-w-xl">
+              NEXMOVE unifies verified neighborhood housing, 3-tier budgeting, transport logistics, and contractual lease audits into one actionable plan.
             </p>
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3 pt-2">
               <button
                 onClick={onStartClick}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-sm hover:shadow transition flex items-center justify-center space-x-2 group"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-[#0F766E] hover:bg-[#115E59] dark:bg-[#5EEAD4] dark:hover:bg-[#2DD4BF] text-white dark:text-[#101918] font-semibold text-sm shadow-xs hover:shadow transition flex items-center justify-center space-x-2 group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#0F766E] dark:focus-visible:ring-[#5EEAD4]"
               >
                 <span>Plan My Move</span>
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" />
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition" aria-hidden="true" />
               </button>
 
               <button
                 onClick={onExploreClick}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-sm border border-slate-200 transition shadow-xs"
+                className="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-white dark:bg-[#182321] hover:bg-[#FAF8F3] dark:hover:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4] font-semibold text-sm border border-[#E4E8E3] dark:border-[#354540] transition shadow-2xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#0F766E] dark:focus-visible:ring-[#5EEAD4]"
               >
                 How NEXMOVE Works
               </button>
             </div>
 
-            {/* Trust Pill Highlights */}
-            <div className="pt-3 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs text-slate-500">
+            {/* Trust Highlights */}
+            <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-4 text-xs text-[#526461] dark:text-[#B6C6C1]">
               <div className="flex items-center space-x-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Verified home filters</span>
+                <CheckCircle2 className="w-4 h-4 text-[#237A57] dark:text-[#5EEAD4]" aria-hidden="true" />
+                <span>Verified home listings</span>
               </div>
               <div className="flex items-center space-x-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <CheckCircle2 className="w-4 h-4 text-[#237A57] dark:text-[#5EEAD4]" aria-hidden="true" />
                 <span>Zero hidden budget surprises</span>
               </div>
               <div className="flex items-center space-x-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Plain-English lease review</span>
+                <CheckCircle2 className="w-4 h-4 text-[#237A57] dark:text-[#5EEAD4]" aria-hidden="true" />
+                <span>Plain-language lease review</span>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Clean Visual Image / Card (5 cols) */}
+          {/* Right Column: Curated Relocation Imagery Card (5 cols) */}
           <div className="lg:col-span-5">
-            <div className="relative rounded-2xl bg-white p-3 border border-slate-200/80 shadow-md overflow-hidden">
-              <div className="relative rounded-xl overflow-hidden aspect-[4/3] max-h-72 bg-slate-100 flex items-center justify-center">
+            <div className="relative rounded-3xl bg-white dark:bg-[#182321] p-3.5 border border-[#E4E8E3] dark:border-[#354540] shadow-card overflow-hidden">
+              <div className="relative rounded-2xl overflow-hidden aspect-[4/3] max-h-76 bg-[#FAF8F3] dark:bg-[#101918] flex items-center justify-center border border-[#E4E8E3]/60 dark:border-[#354540]">
                 {!imageError ? (
                   <img
-                    src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80"
-                    alt="Bright modern apartment interior and relocation setup"
-                    className="w-full h-full object-cover max-h-72 transition hover:scale-105 duration-500"
-                    style={{ maxHeight: "288px", width: "100%", objectFit: "cover" }}
+                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80"
+                    alt="Bright, welcoming modern apartment interior with natural light and clean decor"
+                    className="w-full h-full object-cover max-h-76 transition hover:scale-102 duration-500"
+                    style={{ maxHeight: "304px", width: "100%", objectFit: "cover" }}
                     onError={() => setImageError(true)}
                     loading="lazy"
                   />
                 ) : (
-                  /* Fallback SVG illustration if offline or image blocked */
-                  <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center mb-3 shadow-md">
-                      <Home className="w-8 h-8" />
+                  /* Accessible Fallback Illustration */
+                  <div className="w-full h-full bg-[#E8F3F0] dark:bg-[#203D37] flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-[#0F766E] dark:bg-[#5EEAD4] text-white dark:text-[#101918] flex items-center justify-center mb-3 shadow-xs">
+                      <Home className="w-8 h-8" aria-hidden="true" />
                     </div>
-                    <h4 className="font-bold text-slate-800 text-sm">Your Home & Moving Timeline</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                    <h4 className="font-bold text-[#18312F] dark:text-[#F3F7F4] text-sm">Your Home & Moving Timeline</h4>
+                    <p className="text-xs text-[#526461] dark:text-[#B6C6C1] mt-1 max-w-xs">
                       All your relocation details coordinated automatically.
                     </p>
                   </div>
                 )}
 
-                {/* Subtle caption tag */}
-                <div className="absolute bottom-2 left-2 bg-slate-900/75 backdrop-blur-xs text-white text-[10px] font-medium px-2 py-0.5 rounded">
-                  Example home & moving plan
+                {/* Illustrative badge */}
+                <div className="absolute bottom-2.5 left-2.5 bg-[#18312F]/85 dark:bg-[#101918]/90 backdrop-blur-xs text-white dark:text-[#F3F7F4] text-[10px] font-medium px-2.5 py-1 rounded-md border border-white/10 flex items-center space-x-1">
+                  <ShieldCheck className="w-3 h-3 text-[#5EEAD4]" aria-hidden="true" />
+                  <span>Curated relocation benchmark</span>
                 </div>
               </div>
 
-              {/* Quick Summary Pill Row Under Image */}
+              {/* 4 Pillars Under Image */}
               <div className="grid grid-cols-4 gap-2 pt-3 text-center">
-                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <Home className="w-4 h-4 text-blue-600 mx-auto mb-1" />
-                  <span className="text-[11px] font-semibold text-slate-700 block">Home</span>
+                <div className="p-2.5 rounded-xl bg-[#FAF8F3] dark:bg-[#202D2A] border border-[#E4E8E3] dark:border-[#354540]">
+                  <Home className="w-4 h-4 text-[#0F766E] dark:text-[#5EEAD4] mx-auto mb-1" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold text-[#18312F] dark:text-[#F3F7F4] block">Homes</span>
                 </div>
-                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <Wallet className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
-                  <span className="text-[11px] font-semibold text-slate-700 block">Budget</span>
+                <div className="p-2.5 rounded-xl bg-[#FAF8F3] dark:bg-[#202D2A] border border-[#E4E8E3] dark:border-[#354540]">
+                  <Wallet className="w-4 h-4 text-[#0F766E] dark:text-[#5EEAD4] mx-auto mb-1" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold text-[#18312F] dark:text-[#F3F7F4] block">Budget</span>
                 </div>
-                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <Truck className="w-4 h-4 text-amber-600 mx-auto mb-1" />
-                  <span className="text-[11px] font-semibold text-slate-700 block">Moving</span>
+                <div className="p-2.5 rounded-xl bg-[#FAF8F3] dark:bg-[#202D2A] border border-[#E4E8E3] dark:border-[#354540]">
+                  <Truck className="w-4 h-4 text-[#0F766E] dark:text-[#5EEAD4] mx-auto mb-1" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold text-[#18312F] dark:text-[#F3F7F4] block">Movers</span>
                 </div>
-                <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
-                  <FileText className="w-4 h-4 text-purple-600 mx-auto mb-1" />
-                  <span className="text-[11px] font-semibold text-slate-700 block">Lease</span>
+                <div className="p-2.5 rounded-xl bg-[#FAF8F3] dark:bg-[#202D2A] border border-[#E4E8E3] dark:border-[#354540]">
+                  <FileText className="w-4 h-4 text-[#0F766E] dark:text-[#5EEAD4] mx-auto mb-1" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold text-[#18312F] dark:text-[#F3F7F4] block">Leases</span>
                 </div>
               </div>
             </div>

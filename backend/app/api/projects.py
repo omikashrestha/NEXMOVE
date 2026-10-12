@@ -107,9 +107,26 @@ class ProjectDetailResponse(ProjectSummaryResponse):
 # Persistence Helpers
 # ============================================================================
 
+def _serialize_final_state(state: RelocationState) -> Dict[str, Any]:
+    """Encodes complete relocation state for zero-latency retrieval without re-executing agents."""
+    return {
+        "status": state.status,
+        "housing_proposal": state.housing_proposal.model_dump() if state.housing_proposal else None,
+        "available_housing_options": [h.model_dump() for h in state.available_housing_options] if state.available_housing_options else [],
+        "logistics_estimate": state.logistics_estimate.model_dump() if state.logistics_estimate else None,
+        "budget_audit": state.budget_audit.model_dump() if state.budget_audit else None,
+        "document_audit": state.document_audit.model_dump() if state.document_audit else None,
+        "schedule_plan": state.schedule_plan.model_dump() if state.schedule_plan else None,
+        "synthesized_plan": state.synthesized_plan.model_dump() if state.synthesized_plan else None,
+        "active_conflicts": [c.model_dump() for c in state.active_conflicts] if state.active_conflicts else [],
+        "iteration_count": state.iteration_count
+    }
+
+
 def _persist_workflow_artifacts(project: RelocationProject, state: RelocationState, db: Session):
-    """Synchronizes state outputs into relational database tables."""
+    """Synchronizes state outputs into relational database tables and cached plan."""
     project.status = state.status
+    project.plan_cache = _serialize_final_state(state)
 
     # 1. Update Line Items
     db.query(BudgetLineItem).filter_by(project_id=project.id).delete()
@@ -284,17 +301,12 @@ def list_projects(db: Session = Depends(get_db)):
 
 
 
-@router.get("/{project_id}", response_model=ProjectDetailResponse)
-def get_project(project_id: str, db: Session = Depends(get_db)):
-    """Retrieves full project status, plan details, line items, and agent execution logs."""
-    project = db.query(RelocationProject).filter_by(id=project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
-
-    # Reconstruct state from latest execution log if available
-    profile = _build_profile_from_project(project)
-    
-    # Query latest logs
+def _build_detail_response(
+    project: RelocationProject,
+    db: Session,
+    final_state: Optional[RelocationState] = None
+) -> ProjectDetailResponse:
+    """Builds typed detail response from explicit state, cached plan, or default draft values."""
     logs = db.query(AgentExecutionLog).filter_by(project_id=project.id).order_by(AgentExecutionLog.created_at.asc()).all()
     serialized_logs = [
         {
@@ -307,9 +319,109 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
         for log in logs
     ]
 
-    # Check if a document record was uploaded for this project
-    doc_record = db.query(DocumentRecord).filter_by(project_id=project.id).first()
+    # 1. State provided directly (from fresh execution in run/custom-property)
+    if final_state is not None:
+        status_val = project.status if project.status in ["APPROVED", "REJECTED"] else final_state.status
+        synth = final_state.synthesized_plan
+        if project.status in ["APPROVED", "REJECTED"] and synth:
+            synth.plan_status = project.status
+            synth.escalation_options = []
+
+        return ProjectDetailResponse(
+            project_id=project.id,
+            user_email=project.user.email,
+            user_name=project.user.full_name,
+            origin_city=project.origin_city,
+            destination_city=project.destination_city,
+            target_move_date=project.target_move_date,
+            upfront_budget_limit_inr=project.upfront_budget_limit,
+            monthly_budget_limit_inr=project.monthly_budget_limit,
+            home_bhk=project.home_bhk,
+            has_pets=project.has_pets,
+            status=status_val,
+            created_at=project.created_at.isoformat(),
+            selected_property_id=getattr(project, "selected_property_id", None),
+            housing_proposal=final_state.housing_proposal,
+            available_housing_options=final_state.available_housing_options,
+            logistics_estimate=final_state.logistics_estimate,
+            budget_audit=final_state.budget_audit,
+            document_audit=final_state.document_audit,
+            schedule_plan=final_state.schedule_plan,
+            synthesized_plan=synth,
+            active_conflicts=final_state.active_conflicts,
+            iteration_count=final_state.iteration_count,
+            execution_logs=serialized_logs
+        )
+
+    # 2. Return from cached plan in database (zero-latency, no agent re-execution)
+    if project.plan_cache:
+        cache = project.plan_cache
+        status_val = project.status if project.status in ["APPROVED", "REJECTED"] else cache.get("status", project.status)
+
+        synth_data = cache.get("synthesized_plan")
+        synth = SynthesizedPlan(**synth_data) if synth_data else None
+        if project.status in ["APPROVED", "REJECTED"] and synth:
+            synth.plan_status = project.status
+            synth.escalation_options = []
+
+        return ProjectDetailResponse(
+            project_id=project.id,
+            user_email=project.user.email,
+            user_name=project.user.full_name,
+            origin_city=project.origin_city,
+            destination_city=project.destination_city,
+            target_move_date=project.target_move_date,
+            upfront_budget_limit_inr=project.upfront_budget_limit,
+            monthly_budget_limit_inr=project.monthly_budget_limit,
+            home_bhk=project.home_bhk,
+            has_pets=project.has_pets,
+            status=status_val,
+            created_at=project.created_at.isoformat(),
+            selected_property_id=getattr(project, "selected_property_id", None),
+            housing_proposal=HousingProposal(**cache["housing_proposal"]) if cache.get("housing_proposal") else None,
+            available_housing_options=[HousingProposal(**h) for h in cache.get("available_housing_options", [])],
+            logistics_estimate=LogisticsEstimate(**cache["logistics_estimate"]) if cache.get("logistics_estimate") else None,
+            budget_audit=BudgetAudit(**cache["budget_audit"]) if cache.get("budget_audit") else None,
+            document_audit=DocumentAudit(**cache["document_audit"]) if cache.get("document_audit") else None,
+            schedule_plan=SchedulePlan(**cache["schedule_plan"]) if cache.get("schedule_plan") else None,
+            synthesized_plan=synth,
+            active_conflicts=[ConflictRecord(**c) for c in cache.get("active_conflicts", [])],
+            iteration_count=cache.get("iteration_count", 1),
+            execution_logs=serialized_logs
+        )
+
+    # 3. Handle project without saved results and failed pipeline runs
+    if project.status in ["DRAFT", "FAILED"]:
+        return ProjectDetailResponse(
+            project_id=project.id,
+            user_email=project.user.email,
+            user_name=project.user.full_name,
+            origin_city=project.origin_city,
+            destination_city=project.destination_city,
+            target_move_date=project.target_move_date,
+            upfront_budget_limit_inr=project.upfront_budget_limit,
+            monthly_budget_limit_inr=project.monthly_budget_limit,
+            home_bhk=project.home_bhk,
+            has_pets=project.has_pets,
+            status=project.status,
+            created_at=project.created_at.isoformat(),
+            selected_property_id=getattr(project, "selected_property_id", None),
+            housing_proposal=None,
+            available_housing_options=[],
+            logistics_estimate=None,
+            budget_audit=None,
+            document_audit=None,
+            schedule_plan=None,
+            synthesized_plan=None,
+            active_conflicts=[],
+            iteration_count=1,
+            execution_logs=serialized_logs
+        )
+
+    # 4. Fallback for legacy pre-computed projects without plan_cache
+    profile = _build_profile_from_project(project)
     init_state = RelocationState(project_id=project.id, profile=profile)
+    doc_record = db.query(DocumentRecord).filter_by(project_id=project.id).first()
     if doc_record:
         init_state.document_audit = DocumentAudit(
             document_filename=doc_record.file_name,
@@ -319,40 +431,19 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
             flagged_clauses_for_review=[FlaggedClause(**c) for c in (doc_record.flagged_clauses or [])],
             disclaimer=doc_record.disclaimer
         )
+    computed_state = run_relocation_workflow(init_state)
+    _persist_workflow_artifacts(project, computed_state, db)
+    return _build_detail_response(project, db=db, final_state=computed_state)
 
-    final_state = run_relocation_workflow(init_state)
 
-    if project.status in ["APPROVED", "REJECTED"]:
-        final_state.status = project.status
-        if final_state.synthesized_plan:
-            final_state.synthesized_plan.plan_status = project.status
-            final_state.synthesized_plan.escalation_options = []
+@router.get("/{project_id}", response_model=ProjectDetailResponse)
+def get_project(project_id: str, db: Session = Depends(get_db)):
+    """Retrieves full project status and plan details from cache without re-running agents."""
+    project = db.query(RelocationProject).filter_by(id=project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
 
-    return ProjectDetailResponse(
-        project_id=project.id,
-        user_email=project.user.email,
-        user_name=project.user.full_name,
-        origin_city=project.origin_city,
-        destination_city=project.destination_city,
-        target_move_date=project.target_move_date,
-        upfront_budget_limit_inr=project.upfront_budget_limit,
-        monthly_budget_limit_inr=project.monthly_budget_limit,
-        home_bhk=project.home_bhk,
-        has_pets=project.has_pets,
-        status=final_state.status,
-        created_at=project.created_at.isoformat(),
-        selected_property_id=getattr(project, "selected_property_id", None),
-        housing_proposal=final_state.housing_proposal,
-        available_housing_options=final_state.available_housing_options,
-        logistics_estimate=final_state.logistics_estimate,
-        budget_audit=final_state.budget_audit,
-        document_audit=final_state.document_audit,
-        schedule_plan=final_state.schedule_plan,
-        synthesized_plan=final_state.synthesized_plan,
-        active_conflicts=final_state.active_conflicts,
-        iteration_count=final_state.iteration_count,
-        execution_logs=serialized_logs
-    )
+    return _build_detail_response(project, db=db)
 
 
 @router.post("/{project_id}/run", response_model=ProjectDetailResponse)
@@ -380,10 +471,10 @@ def run_project_planning(project_id: str, db: Session = Depends(get_db)):
     # Execute multi-agent reasoning
     final_state = run_relocation_workflow(init_state)
 
-    # Persist outputs in DB
+    # Persist outputs in DB and cache
     _persist_workflow_artifacts(project, final_state, db)
 
-    return get_project(project_id, db)
+    return _build_detail_response(project, db=db, final_state=final_state)
 
 
 @router.post("/{project_id}/replan", response_model=ProjectDetailResponse)
@@ -405,8 +496,9 @@ def replan_project(project_id: str, req: ReplanProjectRequest, db: Session = Dep
     if req.max_commute_mins is not None:
         project.max_commute_mins = req.max_commute_mins
 
-    # Re-open draft status so new constraints trigger fresh arbitration
+    # Invalidate cached plan and re-open draft status so new constraints trigger fresh arbitration
     project.status = "DRAFT"
+    project.plan_cache = None
     db.commit()
 
     # Re-run reasoning engine
@@ -424,9 +516,25 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
 
     if action == "APPROVE":
         project.status = "APPROVED"
+        if project.plan_cache:
+            cache = dict(project.plan_cache)
+            cache["status"] = "APPROVED"
+            if cache.get("synthesized_plan"):
+                cache["synthesized_plan"] = dict(cache["synthesized_plan"])
+                cache["synthesized_plan"]["plan_status"] = "APPROVED"
+                cache["synthesized_plan"]["escalation_options"] = []
+            project.plan_cache = cache
         db.commit()
     elif action == "REJECT":
         project.status = "REJECTED"
+        if project.plan_cache:
+            cache = dict(project.plan_cache)
+            cache["status"] = "REJECTED"
+            if cache.get("synthesized_plan"):
+                cache["synthesized_plan"] = dict(cache["synthesized_plan"])
+                cache["synthesized_plan"]["plan_status"] = "REJECTED"
+                cache["synthesized_plan"]["escalation_options"] = []
+            project.plan_cache = cache
         db.commit()
     elif action == "SELECT_OPTION_A":
         # User accepted Option A: expand budget allowance to required outlay
@@ -436,6 +544,7 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
             project.upfront_budget_limit = float(opt_a.upfront_cost_inr)
             project.monthly_budget_limit = max(float(project.monthly_budget_limit), float(opt_a.monthly_cost_inr))
             project.status = "APPROVED"
+            project.plan_cache = None
             db.commit()
             final_resp = run_project_planning(project_id, db)
             final_resp.status = "APPROVED"
@@ -457,6 +566,7 @@ def user_decision(project_id: str, req: UserDecisionRequest, db: Session = Depen
             if opt_b.upfront_cost_inr > project.upfront_budget_limit:
                 project.upfront_budget_limit = float(opt_b.upfront_cost_inr)
             project.status = "APPROVED"
+            project.plan_cache = None
             db.commit()
             final_resp = run_project_planning(project_id, db)
             final_resp.status = "APPROVED"
@@ -482,6 +592,7 @@ def select_project_property(project_id: str, req: SelectPropertyRequest, db: Ses
 
     project.selected_property_id = req.property_id
     project.status = "DRAFT"
+    project.plan_cache = None
     db.commit()
 
     return run_project_planning(project_id, db)
@@ -489,7 +600,7 @@ def select_project_property(project_id: str, req: SelectPropertyRequest, db: Ses
 
 @router.post("/{project_id}/custom-property", response_model=ProjectDetailResponse)
 def add_custom_property(project_id: str, req: CustomPropertyRequest, db: Session = Depends(get_db)):
-    """Allows manual property entry for any city, updating the complete relocation plan."""
+    """Allows manual property entry for any city, persisting to database and updating the complete relocation plan."""
     project = db.query(RelocationProject).filter_by(id=project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail=f"Project '{project_id}' not found.")
@@ -498,6 +609,7 @@ def add_custom_property(project_id: str, req: CustomPropertyRequest, db: Session
     from backend.app.agents.housing import HousingResearchAgent
     HousingResearchAgent.register_custom_listing({
         "property_id": custom_id,
+        "project_id": project.id,
         "title": req.title,
         "city": project.destination_city,
         "neighborhood": req.neighborhood,
@@ -512,48 +624,11 @@ def add_custom_property(project_id: str, req: CustomPropertyRequest, db: Session
         "datasource": "USER_MANUAL_ENTRY",
         "property_type": req.property_type,
         "is_verified": True
-    })
-    custom_prop = HousingProposal(
-        property_id=custom_id,
-        title=req.title,
-        city=project.destination_city,
-        neighborhood=req.neighborhood,
-        bhk=req.bhk,
-        monthly_rent_inr=req.monthly_rent_inr,
-        security_deposit_inr=req.security_deposit_inr,
-        society_maintenance_inr=req.society_maintenance_inr,
-        move_in_fee_inr=req.move_in_fee_inr,
-        pet_friendly=req.pet_friendly,
-        commute_to_workplace_mins=req.commute_to_workplace_mins,
-        safety_score_index=8.5,
-        datasource="USER_MANUAL_ENTRY",
-        property_type=req.property_type,
-        is_verified=True,
-        total_upfront_outlay_inr=round(req.security_deposit_inr + req.monthly_rent_inr + req.move_in_fee_inr, 2),
-        total_recurring_monthly_inr=round(req.monthly_rent_inr + req.society_maintenance_inr, 2)
-    )
+    }, db=db)
 
     project.selected_property_id = custom_id
     project.status = "DRAFT"
+    project.plan_cache = None
     db.commit()
 
-    profile = _build_profile_from_project(project)
-    init_state = RelocationState(project_id=project.id, profile=profile)
-    init_state.housing_proposal = custom_prop
-    init_state.available_housing_options = [custom_prop]
-
-    from backend.app.agents.logistics import LogisticsAgent
-    from backend.app.agents.budget import BudgetAnalystAgent
-    from backend.app.agents.document import DocumentIntelligenceAgent
-    from backend.app.agents.schedule import ScheduleOptimizationAgent
-    from backend.app.agents.decision import DecisionSynthesisAgent
-
-    logistics = LogisticsAgent().estimate(profile)
-    init_state.logistics_estimate = logistics
-    init_state.budget_audit = BudgetAnalystAgent().audit(profile, custom_prop, logistics)
-    init_state.document_audit = DocumentIntelligenceAgent().analyze_document(raw_text_content=None)
-    init_state.schedule_plan = ScheduleOptimizationAgent().build_schedule(profile, logistics, custom_prop, init_state.document_audit)
-    final_state = DecisionSynthesisAgent().evaluate_and_arbitrate(init_state)
-
-    _persist_workflow_artifacts(project, final_state, db)
-    return get_project(project_id, db)
+    return run_project_planning(project_id, db)
