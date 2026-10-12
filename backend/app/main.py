@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.core.config import ALLOWED_ORIGINS
 from backend.app.db.session import engine, Base
 from backend.app.api.projects import router as projects_router
 from backend.app.api.documents import router as documents_router
@@ -26,6 +27,8 @@ async def lifespan(app: FastAPI):
                 conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN selected_property_id VARCHAR(50);"))
             if "prefer_economy_freight" not in cols:
                 conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN prefer_economy_freight BOOLEAN DEFAULT 0;"))
+            if "plan_cache" not in cols:
+                conn.execute(text("ALTER TABLE relocation_projects ADD COLUMN plan_cache JSON;"))
             conn.commit()
     except Exception:
         pass
@@ -39,10 +42,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Enable CORS for local Next.js dashboard (port 3000) and n8n (port 5678)
+# Enable CORS for explicit frontend dashboard origins and local services
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Open for university prototype testing
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

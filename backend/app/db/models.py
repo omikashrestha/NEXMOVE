@@ -51,6 +51,7 @@ class RelocationProject(Base):
     max_commute_mins = Column(Integer, default=45, nullable=False)
     selected_property_id = Column(String(50), nullable=True)
     prefer_economy_freight = Column(Boolean, default=False, nullable=True)
+    plan_cache = Column(JSON, nullable=True)
     status = Column(String(50), default="DRAFT", nullable=False)  # DRAFT, REASONING, CONSENSUS_REACHED, AWAITING_USER_DECISION, ACTIVE, APPROVED
 
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -61,6 +62,7 @@ class RelocationProject(Base):
     milestones = relationship("ScheduleMilestone", back_populates="project", cascade="all, delete-orphan")
     agent_logs = relationship("AgentExecutionLog", back_populates="project", cascade="all, delete-orphan")
     documents = relationship("DocumentRecord", back_populates="project", cascade="all, delete-orphan")
+    custom_properties = relationship("CustomPropertyRecord", back_populates="project", cascade="all, delete-orphan")
 
 
 class BudgetLineItem(Base):
@@ -124,3 +126,28 @@ class DocumentRecord(Base):
     created_at = Column(DateTime, default=utc_now, nullable=False)
 
     project = relationship("RelocationProject", back_populates="documents")
+
+
+class CustomPropertyRecord(Base):
+    __tablename__ = "custom_properties"
+
+    id = Column(String(50), primary_key=True)  # property_id e.g. MANUAL-XXXXXX
+    project_id = Column(String(36), ForeignKey("relocation_projects.id", ondelete="CASCADE"), nullable=True, index=True)
+
+    title = Column(String(255), nullable=False)
+    city = Column(String(100), nullable=False)
+    neighborhood = Column(String(100), nullable=False)
+    bhk = Column(Integer, default=2, nullable=False)
+    monthly_rent_inr = Column(Float, nullable=False)
+    security_deposit_inr = Column(Float, nullable=False)
+    society_maintenance_inr = Column(Float, default=0.0, nullable=False)
+    move_in_fee_inr = Column(Float, default=0.0, nullable=False)
+    pet_friendly = Column(Boolean, default=False, nullable=False)
+    commute_to_workplace_mins = Column(Integer, default=30, nullable=False)
+    safety_score_index = Column(Float, default=8.5, nullable=False)
+    datasource = Column(String(50), default="USER_MANUAL_ENTRY", nullable=False)
+    property_type = Column(String(100), default="Apartment", nullable=False)
+    is_verified = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    project = relationship("RelocationProject", back_populates="custom_properties")

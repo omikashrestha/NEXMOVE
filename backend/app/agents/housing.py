@@ -11,16 +11,131 @@ from backend.app.schemas.arbitration import RevisionRequest
 _CUSTOM_LISTINGS: Dict[str, Dict[str, Any]] = {}
 
 
+def _record_to_dict(r: Any) -> Dict[str, Any]:
+    return {
+        "property_id": r.id,
+        "project_id": r.project_id,
+        "title": r.title,
+        "city": r.city,
+        "neighborhood": r.neighborhood,
+        "bhk": r.bhk,
+        "monthly_rent_inr": r.monthly_rent_inr,
+        "security_deposit_inr": r.security_deposit_inr,
+        "society_maintenance_inr": r.society_maintenance_inr,
+        "move_in_fee_inr": r.move_in_fee_inr,
+        "pet_friendly": r.pet_friendly,
+        "commute_to_workplace_mins": r.commute_to_workplace_mins,
+        "safety_score_index": r.safety_score_index,
+        "datasource": r.datasource,
+        "property_type": r.property_type,
+        "is_verified": r.is_verified,
+    }
+
+
+def _get_active_db_session():
+    """Returns an active DB session, checking FastAPI dependency overrides first if running under test."""
+    try:
+        from backend.app.main import app
+        from backend.app.db.session import get_db
+        if get_db in app.dependency_overrides:
+            override = app.dependency_overrides[get_db]
+            gen = override()
+            return (next(gen) if hasattr(gen, "__next__") else gen), True
+    except Exception:
+        pass
+    try:
+        from backend.app.db.session import SessionLocal
+        return SessionLocal(), True
+    except Exception:
+        return None, False
+
+
+def _load_persisted_custom_listings(db: Optional[Any] = None) -> List[Dict[str, Any]]:
+    """Loads custom properties persisted in SQLite database."""
+    records = []
+    session = db
+    should_close = False
+    if session is None:
+        session, should_close = _get_active_db_session()
+
+    if session is None:
+        return records
+
+    try:
+        from backend.app.db.models import CustomPropertyRecord
+        db_records = session.query(CustomPropertyRecord).all()
+        for r in db_records:
+            records.append(_record_to_dict(r))
+    except Exception:
+        pass
+    finally:
+        if should_close and session is not None:
+            try:
+                session.close()
+            except Exception:
+                pass
+    return records
+
+
 class HousingResearchAgent:
     """Specialized agent for filtering and ranking synthetic housing listings in INR."""
 
     @classmethod
-    def register_custom_listing(cls, listing: Dict[str, Any]):
-        """Registers a user-provided custom property listing."""
+    def register_custom_listing(cls, listing: Dict[str, Any], db: Optional[Any] = None):
+        """Registers a user-provided custom property listing and persists to DB."""
         _CUSTOM_LISTINGS[listing["property_id"]] = listing
+        prop_id = listing["property_id"]
 
-    def __init__(self, data_path: Optional[Path] = None):
+        session = db
+        should_close = False
+        if session is None:
+            session, should_close = _get_active_db_session()
+
+        if session is not None:
+            try:
+                from backend.app.db.models import CustomPropertyRecord
+                record_data = {
+                    "id": prop_id,
+                    "project_id": listing.get("project_id"),
+                    "title": listing.get("title") or "Custom Property",
+                    "city": listing.get("city") or "",
+                    "neighborhood": listing.get("neighborhood") or "",
+                    "bhk": int(listing.get("bhk") or 2),
+                    "monthly_rent_inr": float(listing.get("monthly_rent_inr") or 0.0),
+                    "security_deposit_inr": float(listing.get("security_deposit_inr") or 0.0),
+                    "society_maintenance_inr": float(listing.get("society_maintenance_inr") or 0.0),
+                    "move_in_fee_inr": float(listing.get("move_in_fee_inr") or 0.0),
+                    "pet_friendly": bool(listing.get("pet_friendly", False)),
+                    "commute_to_workplace_mins": int(listing.get("commute_to_workplace_mins") or 30),
+                    "safety_score_index": float(listing.get("safety_score_index") or 8.5),
+                    "datasource": listing.get("datasource") or "USER_MANUAL_ENTRY",
+                    "property_type": listing.get("property_type") or "Apartment",
+                    "is_verified": bool(listing.get("is_verified", True)),
+                }
+
+                existing = session.query(CustomPropertyRecord).filter_by(id=prop_id).first()
+                if existing:
+                    for k, v in record_data.items():
+                        setattr(existing, k, v)
+                else:
+                    session.add(CustomPropertyRecord(**record_data))
+
+                if should_close:
+                    session.commit()
+                else:
+                    session.flush()
+            except Exception:
+                pass
+            finally:
+                if should_close and session is not None:
+                    try:
+                        session.close()
+                    except Exception:
+                        pass
+
+    def __init__(self, data_path: Optional[Path] = None, db: Optional[Any] = None):
         self.data_path = data_path or (DATA_DIR / "housing_samples_inr.json")
+        self._db = db
         self._listings = self._load_listings()
 
     def _load_listings(self) -> List[Dict[str, Any]]:
@@ -29,7 +144,15 @@ class HousingResearchAgent:
         with open(self.data_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         base_listings = data.get("listings", [])
-        return base_listings + list(_CUSTOM_LISTINGS.values())
+
+        # Merge persisted custom listings and in-memory listings
+        custom_map: Dict[str, Dict[str, Any]] = {}
+        for item in _load_persisted_custom_listings(db=self._db):
+            custom_map[item["property_id"]] = item
+        for k, v in _CUSTOM_LISTINGS.items():
+            custom_map[k] = v
+
+        return base_listings + list(custom_map.values())
 
     def _filter_and_score_candidates(
         self,
@@ -170,6 +293,12 @@ class HousingResearchAgent:
     ) -> List[HousingProposal]:
         """Returns all matching properties in the destination city matching hard constraints."""
         candidates = self._filter_and_score_candidates(profile, revision_request)
+        if profile.selected_property_id:
+            if not any(c.get("property_id") == profile.selected_property_id for c in candidates):
+                city_lower = profile.destination_city.strip().lower()
+                chosen = next((c for c in self._listings if c.get("property_id") == profile.selected_property_id and c.get("city", "").strip().lower() == city_lower), None)
+                if chosen:
+                    candidates.insert(0, chosen)
         return [self._listing_to_proposal(c, profile) for c in candidates]
 
     def search(
@@ -177,17 +306,15 @@ class HousingResearchAgent:
         profile: RelocationProfile,
         revision_request: Optional[RevisionRequest] = None
     ) -> Optional[HousingProposal]:
+        # Check if user explicitly selected a property
+        if profile.selected_property_id:
+            city_lower = profile.destination_city.strip().lower()
+            chosen = next((c for c in self._listings if c.get("property_id") == profile.selected_property_id and c.get("city", "").strip().lower() == city_lower), None)
+            if chosen:
+                return self._listing_to_proposal(chosen, profile)
+
         candidates = self._filter_and_score_candidates(profile, revision_request)
         if not candidates:
             return None
-
-        # Check if user explicitly selected a property
-        if profile.selected_property_id:
-            chosen = next((c for c in candidates if c.get("property_id") == profile.selected_property_id), None)
-            if not chosen:
-                city_lower = profile.destination_city.strip().lower()
-                chosen = next((c for c in self._listings if c.get("property_id") == profile.selected_property_id and c.get("city", "").strip().lower() == city_lower), None)
-            if chosen:
-                return self._listing_to_proposal(chosen, profile)
 
         return self._listing_to_proposal(candidates[0], profile)

@@ -87,23 +87,118 @@ def analyze_sample_lease(
     return DocumentAnalysisResponse(record_id=record_id, audit=audit)
 
 
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+import io
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+CHUNK_SIZE = 64 * 1024  # 64 KB
+ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf"}
+
+
 @router.post("/upload", response_model=DocumentAnalysisResponse)
 async def upload_and_analyze_document(
     file: UploadFile = File(...),
     project_id: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
-    """Parses an uploaded text or PDF document and flags contractual risks for user review."""
-    content_bytes = await file.read()
-    try:
-        raw_text = content_bytes.decode("utf-8")
-    except UnicodeDecodeError:
-        raw_text = content_bytes.decode("latin-1", errors="ignore")
+    """
+    Parses an uploaded text (.txt, .md) or PDF (.pdf) document and flags contractual risks.
+    Enforces a strict 5 MB streaming read limit, validates signatures, and parses text-based PDFs.
+    """
+    filename = file.filename or "uploaded_lease.txt"
+    ext = Path(filename).suffix.lower()
 
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format '{ext}'. Please upload a plain text (.txt, .md) or PDF (.pdf) agreement."
+        )
+
+    # 1. Stream file in chunks to enforce 5 MB cap without trusting client Content-Length
+    content_chunks = []
+    total_bytes = 0
+    while True:
+        chunk = await file.read(CHUNK_SIZE)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="File size exceeds maximum allowed limit of 5 MB."
+            )
+        content_chunks.append(chunk)
+
+    if total_bytes == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty. Please provide a valid lease agreement document."
+        )
+
+    content_bytes = b"".join(content_chunks)
+
+    # 2. Extract Text based on format
+    if ext == ".pdf":
+        if not content_bytes.startswith(b"%PDF"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid PDF file. Header signature does not match PDF specification."
+            )
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+            if reader.is_encrypted:
+                try:
+                    reader.decrypt("")
+                except Exception:
+                    pass
+                if reader.is_encrypted:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="The uploaded PDF is password-protected or encrypted. Please provide an unencrypted agreement."
+                    )
+
+            pages_text = []
+            for page in reader.pages:
+                try:
+                    t = page.extract_text()
+                    if t and t.strip():
+                        pages_text.append(t.strip())
+                except Exception:
+                    continue
+            raw_text = "\n\n".join(pages_text).strip()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Failed to parse PDF document structure: {str(exc)}"
+            )
+
+        if not raw_text:
+            raise HTTPException(
+                status_code=422,
+                detail="No readable text found in the uploaded PDF. Scanned images or image-only PDFs are not supported. Please upload a text-based document."
+            )
+    else:
+        # Plain text or Markdown
+        try:
+            raw_text = content_bytes.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            raw_text = content_bytes.decode("latin-1", errors="ignore").strip()
+
+        if not raw_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded document contains no readable text."
+            )
+
+    # 3. Analyze document text through DocumentIntelligenceAgent
     agent = DocumentIntelligenceAgent()
     audit = agent.analyze_document(raw_text_content=raw_text)
-    audit.document_filename = file.filename or "uploaded_lease.txt"
+    audit.document_filename = filename
 
+    # 4. Attach to project if requested
     record_id = None
     if project_id:
         project = db.query(RelocationProject).filter_by(id=project_id).first()
@@ -115,12 +210,17 @@ async def upload_and_analyze_document(
                 extracted_terms={
                     "monthly_rent_inr": audit.extracted_monthly_rent_inr,
                     "security_deposit_inr": audit.extracted_security_deposit_inr,
-                    "notice_period_days": audit.extracted_notice_period_days
+                    "notice_period_days": audit.extracted_notice_period_days,
+                    "lock_in_months": audit.extracted_lock_in_months
                 },
                 flagged_clauses=[c.model_dump() for c in audit.flagged_clauses_for_review],
                 disclaimer=audit.disclaimer
             )
             db.add(record)
+            if project.plan_cache:
+                cache = dict(project.plan_cache)
+                cache["document_audit"] = audit.model_dump()
+                project.plan_cache = cache
             db.commit()
             db.refresh(record)
             record_id = record.id

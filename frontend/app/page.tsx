@@ -244,7 +244,7 @@ export default function HomeDashboard() {
   };
 
   return (
-    <div ref={topRef} className="min-h-screen bg-[#fafaf9] text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div ref={topRef} className="min-h-screen bg-[#FAF8F3] dark:bg-[#101918] text-[#18312F] dark:text-[#F3F7F4] flex flex-col font-sans selection:bg-[#E8F3F0] dark:selection:bg-[#203D37] selection:text-[#115E59] dark:selection:text-[#5EEAD4] transition-colors duration-200">
       
       {/* Top Navbar */}
       <Navbar 
@@ -266,17 +266,17 @@ export default function HomeDashboard() {
         
         {/* Friendly Error Notice Banner */}
         {errorMsg && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start justify-between shadow-xs animate-fadeIn">
+          <div className="p-4 rounded-2xl bg-[#FDF2F1] dark:bg-[#7F1D1D]/20 border border-[#F9D1CE] dark:border-[#B42318]/40 text-[#B42318] dark:text-[#FCA5A5] flex items-start justify-between shadow-xs animate-fadeIn" role="alert">
             <div className="flex items-start space-x-3">
-              <AlertTriangle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+              <AlertTriangle className="w-5 h-5 text-[#B42318] dark:text-[#FCA5A5] flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-xs text-rose-800">Connection Notice</p>
-                <p className="text-xs text-rose-700 mt-0.5">{errorMsg}</p>
+                <p className="font-semibold text-xs text-[#B42318] dark:text-[#FCA5A5]">Connection Notice</p>
+                <p className="text-xs text-[#B42318]/90 dark:text-[#FCA5A5]/90 mt-0.5">{errorMsg}</p>
               </div>
             </div>
             <button 
               onClick={() => setErrorMsg(null)}
-              className="text-xs font-semibold text-rose-500 hover:text-rose-700 p-1"
+              className="text-xs font-semibold text-[#B42318] dark:text-[#FCA5A5] hover:text-[#7A1910] dark:hover:text-[#FEE2E2] p-1 underline transition"
             >
               Dismiss
             </button>
@@ -287,15 +287,15 @@ export default function HomeDashboard() {
         <section aria-label="Overview Summary Cards">
           <div className="flex items-center justify-between mb-3.5">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Overview</h2>
-              <p className="text-xs text-slate-500">Your move at a glance</p>
+              <h2 className="text-base font-bold text-[#18312F] dark:text-[#F3F7F4]">Overview</h2>
+              <p className="text-xs text-[#526461] dark:text-[#B6C6C1]">Your move at a glance</p>
             </div>
             {project && (
               <button
                 onClick={() => setShowWizardModal(true)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition"
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-[#E4E8E3] dark:border-[#354540] bg-white dark:bg-[#182321] hover:bg-[#FAF8F3] dark:hover:bg-[#202D2A] text-[#18312F] dark:text-[#F3F7F4] text-xs font-semibold shadow-xs transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#0F766E] dark:focus-visible:ring-[#2DD4BF]"
               >
-                <PlusCircle className="w-3.5 h-3.5 text-blue-600" />
+                <PlusCircle className="w-3.5 h-3.5 text-[#0F766E] dark:text-[#2DD4BF]" />
                 <span>Plan Another Move</span>
               </button>
             )}
@@ -312,11 +312,11 @@ export default function HomeDashboard() {
         {!project && (
           <section ref={wizardRef} aria-label="Relocation Setup">
             <div className="text-center max-w-xl mx-auto mb-6 space-y-1">
-              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200/60 inline-block mb-1">
+              <span className="text-xs font-bold text-[#115E59] dark:text-[#5EEAD4] bg-[#E8F3F0] dark:bg-[#203D37] px-3 py-1 rounded-full border border-[#CCE3D7] dark:border-[#354540] inline-block mb-1">
                 Guided Relocation Setup
               </span>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">Plan Your Move in 4 Simple Steps</h2>
-              <p className="text-xs text-slate-500">
+              <h2 className="text-2xl font-black text-[#18312F] dark:text-[#F3F7F4] tracking-tight">Plan Your Move in 4 Simple Steps</h2>
+              <p className="text-xs text-[#526461] dark:text-[#B6C6C1]">
                 Answer a few quick questions to receive your tailored home options, moving quotes, and timeline.
               </p>
             </div>
@@ -335,17 +335,17 @@ export default function HomeDashboard() {
           <section ref={resultsRef} aria-label="Your Moving Plan">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center">
-                  <Sparkles className="w-3.5 h-3.5 mr-1" />
+                <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E] dark:text-[#2DD4BF] flex items-center">
+                  <Sparkles className="w-3.5 h-3.5 mr-1 text-[#0F766E] dark:text-[#2DD4BF]" />
                   Your Moving Plan
                 </span>
-                <h2 className="text-xl font-extrabold text-slate-900 tracking-tight mt-0.5">
+                <h2 className="text-xl font-extrabold text-[#18312F] dark:text-[#F3F7F4] tracking-tight mt-0.5">
                   {project.origin_city} to {project.destination_city} Relocation
                 </h2>
               </div>
               <button
                 onClick={() => setShowWizardModal(true)}
-                className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1 hover:underline"
+                className="text-xs text-[#0F766E] dark:text-[#2DD4BF] hover:text-[#115E59] dark:hover:text-[#5EEAD4] font-semibold flex items-center space-x-1 hover:underline transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#0F766E] dark:focus-visible:ring-[#2DD4BF] rounded-md px-1 py-0.5"
               >
                 <span>Change parameters</span>
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -382,16 +382,17 @@ export default function HomeDashboard() {
 
       {/* Modal for Starting Another Move while one is active */}
       {showWizardModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+        <div className="fixed inset-0 z-50 bg-[#18312F]/40 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="modal-plan-title">
+          <div className="bg-white dark:bg-[#182321] rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-card border border-[#E4E8E3] dark:border-[#354540] my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-[#E4E8E3] dark:border-[#354540] mb-6">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Plan a New Relocation</h3>
-                <p className="text-xs text-slate-500">Configure parameters to generate a fresh moving plan</p>
+                <h3 id="modal-plan-title" className="text-lg font-bold text-[#18312F] dark:text-[#F3F7F4]">Plan a New Relocation</h3>
+                <p className="text-xs text-[#526461] dark:text-[#B6C6C1]">Configure parameters to generate a fresh moving plan</p>
               </div>
               <button
                 onClick={() => setShowWizardModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition text-sm"
+                className="w-8 h-8 rounded-full bg-[#FAF8F3] dark:bg-[#202D2A] hover:bg-[#E8F3F0] dark:hover:bg-[#354540] flex items-center justify-center text-[#526461] dark:text-[#B6C6C1] hover:text-[#18312F] dark:hover:text-[#F3F7F4] font-bold transition text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#0F766E] dark:focus-visible:ring-[#2DD4BF]"
+                aria-label="Close modal"
               >
                 ✕
               </button>
@@ -408,31 +409,31 @@ export default function HomeDashboard() {
       )}
 
       {/* Trustworthy Consumer Footer */}
-      <footer className="border-t border-slate-200/80 bg-white py-10 mt-12 text-xs text-slate-500">
+      <footer className="border-t border-[#E4E8E3] dark:border-[#354540] bg-white dark:bg-[#182321] py-10 mt-12 text-xs text-[#526461] dark:text-[#B6C6C1] transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm">
+              <div className="w-8 h-8 rounded-xl bg-[#0F766E] dark:bg-[#2DD4BF] flex items-center justify-center text-white dark:text-[#101918] font-bold text-sm shadow-xs">
                 NM
               </div>
               <div>
-                <p className="font-bold text-slate-900">NEXMOVE — Your next move, made simple.</p>
-                <p className="text-[11px] text-slate-400">Autonomous relocation assistance for housing, budgets, moving, and leases.</p>
+                <p className="font-bold text-[#18312F] dark:text-[#F3F7F4]">NEXMOVE — Your next move, made simple.</p>
+                <p className="text-[11px] text-[#526461] dark:text-[#B6C6C1]">Autonomous relocation assistance for housing, budgets, moving, and leases.</p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-[11px] text-slate-500 font-medium">
+            <div className="flex flex-wrap items-center gap-4 text-[11px] text-[#526461] dark:text-[#B6C6C1] font-medium">
               <span>Housing & Movers</span>
               <span>•</span>
               <span>Budget Planning</span>
               <span>•</span>
               <span>Lease Review</span>
               <span>•</span>
-              <span>Selected Currency: <strong className="text-slate-800">{currency}</strong></span>
+              <span>Selected Currency: <strong className="text-[#18312F] dark:text-[#F3F7F4]">{currency}</strong></span>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
+          <div className="pt-4 border-t border-[#E4E8E3] dark:border-[#354540] flex flex-col md:flex-row items-center justify-between gap-3 text-[11px] text-[#526461]/80 dark:text-[#B6C6C1]/80">
             <p>
               NEXMOVE University Project Demonstration. Designed by Omika Shrestha, Pritika Kurup, Neel Wyvern, and Tanmay.
             </p>
